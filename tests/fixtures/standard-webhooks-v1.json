@@ -1,0 +1,7 @@
+{
+  "secret": "whsec_C2FVsBQIhrscChlQIMV+b5sSYspob7oD",
+  "event_id": "msg_27UH4WbU6Z5A5EzD8u03UvzRbpk",
+  "timestamp": 1649367553,
+  "payload": "{\"email\":\"test@example.com\",\"username\":\"test_user\"}",
+  "signature": "v1,tZ1I4/hDygAJgO5TYxiSd6Sd0kDW6hPenDe+bTa3Kkw="
+}
