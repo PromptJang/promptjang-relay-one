@@ -1,8 +1,6 @@
 use crate::domain::DomainError;
 use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Nonce};
-use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier, password_hash::SaltString};
-use base64::{Engine as _, engine::general_purpose::STANDARD};
 use rand::{RngCore, rngs::OsRng};
 use sha2::{Digest, Sha256};
 
@@ -10,12 +8,6 @@ pub fn new_secret(prefix: &str) -> String {
     let mut bytes = [0_u8; 32];
     OsRng.fill_bytes(&mut bytes);
     format!("{prefix}{}", hex::encode(bytes))
-}
-
-pub fn new_webhook_secret() -> String {
-    let mut bytes = [0_u8; 32];
-    OsRng.fill_bytes(&mut bytes);
-    format!("whsec_{}", STANDARD.encode(bytes))
 }
 
 pub fn hash_bytes(value: &[u8]) -> String {
@@ -50,22 +42,6 @@ pub fn decrypt_secret(key: &[u8; 32], encoded: &[u8]) -> Result<String, DomainEr
         .map_err(|_| DomainError::internal("secret decryption failed"))?;
     String::from_utf8(plaintext)
         .map_err(|_| DomainError::internal("decrypted secret is invalid UTF-8"))
-}
-
-pub fn hash_password(password: &str) -> Result<String, DomainError> {
-    let salt = SaltString::generate(&mut OsRng);
-    Argon2::default()
-        .hash_password(password.as_bytes(), &salt)
-        .map(|hash| hash.to_string())
-        .map_err(|error| DomainError::internal(format!("password hashing failed: {error}")))
-}
-
-pub fn verify_password(password: &str, encoded: &str) -> bool {
-    PasswordHash::new(encoded).is_ok_and(|hash| {
-        Argon2::default()
-            .verify_password(password.as_bytes(), &hash)
-            .is_ok()
-    })
 }
 
 #[cfg(test)]
@@ -104,16 +80,6 @@ mod tests {
     }
 
     #[test]
-    fn webhook_secret_is_standard_base64_with_256_bits() {
-        // Arrange and act
-        let secret = new_webhook_secret();
-        let encoded = secret.strip_prefix("whsec_").expect("prefix");
-
-        // Assert
-        assert_eq!(STANDARD.decode(encoded).map(|bytes| bytes.len()), Ok(32));
-    }
-
-    #[test]
     fn hash_bytes_matches_known_sha256_vector() {
         // Arrange
         let input = b"abc";
@@ -139,33 +105,6 @@ mod tests {
 
         // Assert
         assert_eq!(first, second);
-    }
-
-    #[test]
-    fn password_round_trip_verifies() {
-        // Arrange
-        let password = "at-least-twelve-characters";
-        let encoded = hash_password(password).expect("hashing succeeds");
-
-        // Act
-        let verified = verify_password(password, &encoded);
-
-        // Assert
-        assert!(verified);
-    }
-
-    #[test]
-    fn wrong_password_or_corrupt_hash_fails_closed() {
-        // Arrange
-        let encoded = hash_password("correct-horse-battery").expect("hashing succeeds");
-
-        // Act
-        let wrong_password = verify_password("incorrect-stapler", &encoded);
-        let corrupt_hash = verify_password("correct-horse-battery", "not-a-hash");
-
-        // Assert
-        assert!(!wrong_password);
-        assert!(!corrupt_hash);
     }
 
     #[test]

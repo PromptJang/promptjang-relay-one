@@ -4,9 +4,7 @@ import type { RevealedSecret } from '../types'
 const props = defineProps<{ secret: RevealedSecret }>()
 const emit = defineEmits<{ dismiss: [] }>()
 const copyState = shallowRef<'idle' | 'copied' | 'failed'>('idle')
-const guidance = computed(() => props.secret.kind === 'api-key'
-  ? 'It is encrypted at rest and remains copyable from API keys. Use it as a Bearer token for event and mailbox requests.'
-  : 'Use a Standard Webhooks v1 verifier at the receiver.')
+const guidance = computed(() => 'It is encrypted at rest and remains copyable from API keys. Use it as a Bearer token for mailbox requests and MCP.')
 async function copy() {
   try {
     await navigator.clipboard.writeText(props.secret.value)
@@ -19,9 +17,8 @@ async function copy() {
 
 <template>
   <section class="secret-notice" role="status">
-    <div><strong>{{ secret.kind === 'api-key' ? 'API key created' : 'Copy this signing secret now' }}</strong><p><template v-if="secret.kind === 'signing-secret'">It will not be shown again. </template>{{ guidance }}</p></div>
+    <div><strong>API key created</strong><p>{{ guidance }}</p></div>
     <code>{{ secret.value }}</code><button @click="copy">{{ copyState === 'copied' ? 'Copied' : 'Copy' }}</button><button class="secondary" @click="emit('dismiss')">Dismiss</button>
-    <a v-if="secret.kind === 'signing-secret'" href="https://github.com/standard-webhooks/standard-webhooks" target="_blank" rel="noreferrer">Verification guide</a>
     <span class="copy-status" aria-live="polite">{{ copyState === 'copied' ? 'Secret copied to clipboard.' : copyState === 'failed' ? 'Clipboard access failed. Select and copy the secret manually.' : '' }}</span>
   </section>
 </template>

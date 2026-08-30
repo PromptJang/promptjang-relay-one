@@ -11,25 +11,21 @@ pub const DOCS: &[(&str, &str, &str)] = &[
         "Quick start",
         include_str!("../../../docs/quickstart.md"),
     ),
-    (
-        "api",
-        "API and signing",
-        include_str!("../../../docs/api.md"),
-    ),
+    ("api", "Mailbox API", include_str!("../../../docs/api.md")),
     (
         "mailbox",
-        "Agent mailbox & MCP",
+        "Mailbox lifecycle",
         include_str!("../../../docs/mailbox.md"),
+    ),
+    (
+        "mcp",
+        "MCP and Agent Skill",
+        include_str!("../../../docs/mcp.md"),
     ),
     (
         "configuration",
         "Configuration",
         include_str!("../../../docs/configuration.md"),
-    ),
-    (
-        "observability",
-        "OpenTelemetry",
-        include_str!("../../../docs/observability.md"),
     ),
     (
         "operations",
@@ -40,16 +36,6 @@ pub const DOCS: &[(&str, &str, &str)] = &[
         "security",
         "Security",
         include_str!("../../../docs/security.md"),
-    ),
-    (
-        "migration-v01-v02",
-        "Migration v0.1 → v0.2",
-        include_str!("../../../docs/migration-v01-v02.md"),
-    ),
-    (
-        "migration-v02-v03",
-        "Migration v0.2 → v0.3",
-        include_str!("../../../docs/migration-v02-v03.md"),
     ),
 ];
 
@@ -141,7 +127,7 @@ pub fn page(active: Option<&str>, title: &str, body: &str, nonce: &str) -> Strin
         |name| format!("Documentation <span>/</span> {}", title_for(name)),
     );
     format!(
-        r#"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark light"><title>{title} · PromptJang Relay</title><style nonce="{nonce}">
+        r#"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark light"><title>{title} · PromptJang Relay One</title><style nonce="{nonce}">
 :root {{ font-family:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif; color-scheme:dark; --bg:#080d16; --surface:#0e1624; --elevated:#152033; --border:#263349; --text:#f4f7fb; --muted:#9aa8ba; --accent:#00d4aa; }}
 @media (prefers-color-scheme: light) {{ :root {{ color-scheme:light; --bg:#f5f8f7; --surface:#fff; --elevated:#eef3f1; --border:#d8e2df; --text:#101820; --muted:#5c6975; }} }}
 * {{ box-sizing:border-box }} body {{ margin:0; background:var(--bg); color:var(--text); line-height:1.7; font-size:15.5px }}
@@ -177,7 +163,7 @@ ul,ol {{ padding-left:24px }} li {{ margin:5px 0 }}
 .pager-link:hover {{ border-color:var(--accent) }} .pager-link.next {{ text-align:right }}
 @media(max-width:780px) {{ .layout {{ grid-template-columns:1fr }} aside {{ position:static; height:auto; border-right:none; border-bottom:1px solid var(--border) }} .backlink {{ display:none }} main {{ padding:26px 18px 50px }} .pager {{ grid-template-columns:1fr }} }}
 @media (prefers-reduced-motion: no-preference) {{ .pager-link,aside nav a {{ transition:border-color .15s,background .15s,color .15s }} }}
-</style></head><body><div class="layout"><aside><p class="eyebrow">RELAY · SELF-HOSTED</p><p class="brand">PromptJang <span>Relay</span></p><nav aria-label="Documentation">{sidebar}</nav><a class="backlink" href="/">← Open the UI</a></aside><main><p class="crumbs">{breadcrumb}</p>{body}{footer}</main></div><script nonce="{nonce}">
+</style></head><body><div class="layout"><aside><p class="eyebrow">RELAY ONE · LOCAL</p><p class="brand">PromptJang <span>Relay One</span></p><nav aria-label="Documentation">{sidebar}</nav><a class="backlink" href="/">← Open the UI</a></aside><main><p class="crumbs">{breadcrumb}</p>{body}{footer}</main></div><script nonce="{nonce}">
 document.querySelectorAll("pre").forEach(function (pre) {{
   var wrapper = document.createElement("div");
   wrapper.className = "codeblock";
@@ -220,7 +206,7 @@ fn docs_response(active: Option<&str>, title: &str, body: &str) -> Response {
 
 pub async fn index() -> Response {
     let body = render(
-        "# PromptJang Relay documentation\n\nRun signed webhook delivery or durable agent mailboxes on your PostgreSQL. Start with the quick start, then open only the guide you need.\n",
+        "# PromptJang Relay One documentation\n\nRun one durable mailbox between local CLI agents. Start with the quick start, then open only the guide you need.\n",
     );
     docs_response(None, "Documentation", &body)
 }
@@ -270,14 +256,14 @@ mod tests {
     #[test]
     fn links_to_known_documents_are_rewritten_and_others_survive() {
         // Arrange
-        let markdown = "[mailbox](mailbox.md) and [external](../examples/observability/README.md)";
+        let markdown = "[mailbox](mailbox.md) and [external](https://example.com)";
 
         // Act
         let html = render(markdown);
 
         // Assert
         assert!(html.contains("href=\"/docs/mailbox\""));
-        assert!(html.contains("href=\"../examples/observability/README.md\""));
+        assert!(html.contains("href=\"https://example.com\""));
     }
 
     #[test]
@@ -335,7 +321,7 @@ mod tests {
         let page = page(None, "Documentation", "<h1>x</h1>", "test-nonce");
 
         // Assert
-        assert!(page.contains("PromptJang <span>Relay</span>"));
+        assert!(page.contains("PromptJang <span>Relay One</span>"));
         assert!(page.contains("href=\"/\""));
         assert!(page.contains("color-scheme:dark"));
         assert!(page.contains(r#"style nonce="test-nonce""#));

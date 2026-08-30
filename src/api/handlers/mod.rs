@@ -1,10 +1,8 @@
 pub mod docs;
-pub mod endpoints;
-pub mod events;
 pub mod health;
-pub mod ingest;
 pub mod keys;
 pub mod mail;
+pub mod updates;
 
 use axum::http::HeaderMap;
 use sqlx::SqlitePool;

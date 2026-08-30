@@ -1,31 +1,39 @@
 # PromptJang Relay One
 
-**Durable delivery for webhooks and agents, in one local app.**
-
-Relay One packages signed webhook delivery, durable agent mailboxes, MCP, SQLite, the worker, UI, and documentation in one executable. It needs no Docker, PostgreSQL, Cloud account, or background agent loop.
+**A durable local mailbox for CLI agents.**
 
 ```text
-Application ──event──▶ Relay One + SQLite ──signed retries──▶ service
-CLI agent ──message──▶ Relay One mailbox ◀──claim / acknowledge──▶ CLI agent
+Claude Code ──message──▶ Relay One + SQLite ──claim──▶ Codex
+any CLI agent ─────────▶ Relay One ────────────────▶ any CLI agent
 ```
 
-## Run from source
+One executable contains SQLite, the mailbox API, MCP server, UI, and documentation. No Docker, PostgreSQL, Cloud account, agent wake-up, or hidden loop.
 
 ```bash
-cd web && npm ci && npm run build && cd ..
-cargo run -- --data-dir "$PWD/.relay-one" serve --no-open
+promptjang-relay-one
 ```
 
-Open <http://127.0.0.1:8081>. First launch creates `relay-one.db` and a protected `master.key`. Management stays on loopback; producer and mailbox operations use `pj_one_` API keys.
+Relay One opens <http://127.0.0.1:8081>, creates its local database and encryption key, and stays in the foreground. Create a `pj_one_` API key, then configure an MCP client:
 
-## MCP
+```json
+{"mcpServers":{"promptjang":{"command":"promptjang-relay-one","args":["mcp"],"env":{"PJ_ONE_API_KEY":"pj_one_...","PJ_ONE_MAILBOX":"codex"}}}}
+```
+
+Tools: `mail_push`, `mail_claim`, `mail_ack`, `mail_nack`, and `mail_list`.
+
+The release bundle includes the cross-agent skill. Install it where your agent scans skills, commonly `~/.agents/skills/promptjang`:
 
 ```bash
-PJ_ONE_API_KEY=pj_one_... PJ_ONE_MAILBOX=codex promptjang-relay-one mcp
+mkdir -p ~/.agents/skills && cp -R skills/promptjang ~/.agents/skills/
 ```
 
-Tools: `mail_push`, `mail_claim`, `mail_ack`, `mail_nack`, and `mail_list`. Relay One transports work; it never wakes or loops an agent.
+- [Quick start](docs/quickstart.md)
+- [Mailbox API](docs/api.md)
+- [Mailbox lifecycle](docs/mailbox.md)
+- [MCP and Agent Skill](docs/mcp.md)
+- [Operations](docs/operations.md)
+- [Security](docs/security.md)
 
-Relay One is the SQLite, single-process product. [PromptJang Relay](https://github.com/PromptJang/promptjang-relay) is the PostgreSQL server product. PromptJang Cloud is managed and multi-organization.
+Relay One checks the official GitHub stable-release feed and asks before opening an update. It never downloads or installs silently.
 
 Apache-2.0 licensed.

@@ -18,17 +18,35 @@ pub async fn run() -> Result<()> {
             }
         };
         let id = request.get("id").cloned().unwrap_or(Value::Null);
-        let method = request.get("method").and_then(Value::as_str).unwrap_or_default();
-        if method.starts_with("notifications/") { continue; }
+        let method = request
+            .get("method")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if method.starts_with("notifications/") {
+            continue;
+        }
         let result = match method {
-            "initialize" => Ok(json!({"protocolVersion":"2025-06-18","capabilities":{"tools":{}},"serverInfo":{"name":"promptjang-relay-one","version":env!("CARGO_PKG_VERSION")}})),
+            "initialize" => Ok(
+                json!({"protocolVersion":"2025-06-18","capabilities":{"tools":{}},"serverInfo":{"name":"promptjang-relay-one","version":env!("CARGO_PKG_VERSION")}}),
+            ),
             "tools/list" => Ok(json!({"tools": tool_definitions()})),
-            "tools/call" => call_tool(&client, &base, &key, default_mailbox.as_deref(), request.get("params").unwrap_or(&Value::Null)).await,
+            "tools/call" => {
+                call_tool(
+                    &client,
+                    &base,
+                    &key,
+                    default_mailbox.as_deref(),
+                    request.get("params").unwrap_or(&Value::Null),
+                )
+                .await
+            }
             _ => Err(format!("unknown method: {method}")),
         };
         let response = match result {
             Ok(value) => json!({"jsonrpc":"2.0","id":id,"result":value}),
-            Err(message) => json!({"jsonrpc":"2.0","id":id,"error":{"code":-32000,"message":message}}),
+            Err(message) => {
+                json!({"jsonrpc":"2.0","id":id,"error":{"code":-32000,"message":message}})
+            }
         };
         write(&mut output, response).await?;
     }
@@ -36,7 +54,9 @@ pub async fn run() -> Result<()> {
 }
 
 async fn write(output: &mut tokio::io::Stdout, value: Value) -> Result<()> {
-    output.write_all(serde_json::to_string(&value)?.as_bytes()).await?;
+    output
+        .write_all(serde_json::to_string(&value)?.as_bytes())
+        .await?;
     output.write_all(b"\n").await?;
     output.flush().await?;
     Ok(())
@@ -52,30 +72,73 @@ fn tool_definitions() -> Vec<Value> {
     ].into_iter().map(|(name,description,properties,required)| json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required}})).collect()
 }
 
-async fn call_tool(client: &reqwest::Client, base: &str, key: &str, default_mailbox: Option<&str>, params: &Value) -> Result<Value, String> {
-    let name = params.get("name").and_then(Value::as_str).ok_or("tool name is required")?;
-    let args = params.get("arguments").cloned().unwrap_or_else(|| json!({}));
-    let mailbox = || args.get("mailbox").and_then(Value::as_str).or(default_mailbox).ok_or("mailbox is required");
+async fn call_tool(
+    client: &reqwest::Client,
+    base: &str,
+    key: &str,
+    default_mailbox: Option<&str>,
+    params: &Value,
+) -> Result<Value, String> {
+    let name = params
+        .get("name")
+        .and_then(Value::as_str)
+        .ok_or("tool name is required")?;
+    let args = params
+        .get("arguments")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    let mailbox = || {
+        args.get("mailbox")
+            .and_then(Value::as_str)
+            .or(default_mailbox)
+            .ok_or("mailbox is required")
+    };
     let auth = |request: reqwest::RequestBuilder| request.bearer_auth(key);
     let response = match name {
         "mail_list" => client.get(format!("{base}/api/v1/mail")).send().await,
         "mail_push" => {
-            let mut request = auth(client.post(format!("{base}/v1/mail/{}/messages", mailbox()?))).json(args.get("payload").ok_or("payload is required")?);
-            if let Some(value) = args.get("idempotency_key").and_then(Value::as_str) { request = request.header("Idempotency-Key", value); }
+            let mut request = auth(client.post(format!("{base}/v1/mail/{}/messages", mailbox()?)))
+                .json(args.get("payload").ok_or("payload is required")?);
+            if let Some(value) = args.get("idempotency_key").and_then(Value::as_str) {
+                request = request.header("Idempotency-Key", value);
+            }
             request.send().await
         }
-        "mail_claim" => auth(client.post(format!("{base}/v1/mail/{}/claim", mailbox()?))).json(&json!({"limit":args.get("limit"),"lease_seconds":args.get("lease_seconds")})).send().await,
+        "mail_claim" => {
+            auth(client.post(format!("{base}/v1/mail/{}/claim", mailbox()?)))
+                .json(&json!({"limit":args.get("limit"),"lease_seconds":args.get("lease_seconds")}))
+                .send()
+                .await
+        }
         "mail_ack" | "mail_nack" => {
-            let id = args.get("id").and_then(Value::as_str).ok_or("id is required")?;
-            let token = args.get("claim_token").and_then(Value::as_str).ok_or("claim_token is required")?;
+            let id = args
+                .get("id")
+                .and_then(Value::as_str)
+                .ok_or("id is required")?;
+            let token = args
+                .get("claim_token")
+                .and_then(Value::as_str)
+                .ok_or("claim_token is required")?;
             let action = if name == "mail_ack" { "ack" } else { "nack" };
-            auth(client.post(format!("{base}/v1/mail/{}/messages/{id}/{action}", mailbox()?))).json(&json!({"claim_token":token})).send().await
+            auth(client.post(format!(
+                "{base}/v1/mail/{}/messages/{id}/{action}",
+                mailbox()?
+            )))
+            .json(&json!({"claim_token":token}))
+            .send()
+            .await
         }
         _ => return Err(format!("unknown tool: {name}")),
-    }.map_err(|error| error.to_string())?;
+    }
+    .map_err(|error| error.to_string())?;
     let status = response.status();
-    let value = response.json::<Value>().await.map_err(|error| error.to_string())?;
-    Ok(json!({"content":[{"type":"text","text":serde_json::to_string(&value).unwrap_or_default()}],"isError":!status.is_success()}))
+    let value = response
+        .json::<Value>()
+        .await
+        .map_err(|error| error.to_string())?;
+    Ok(
+        json!({"content":[{"type":"text","text":serde_json::to_string(&value).unwrap_or_default()}],"isError":!status.is_success()}),
+    )
 }
 
 #[cfg(test)]
@@ -83,7 +146,20 @@ mod tests {
     use super::*;
     #[test]
     fn exposes_exact_mailbox_tools() {
-        let names: Vec<_> = tool_definitions().iter().filter_map(|v| v["name"].as_str()).collect();
-        assert_eq!(names, ["mail_push", "mail_claim", "mail_ack", "mail_nack", "mail_list"]);
+        let definitions = tool_definitions();
+        let names: Vec<_> = definitions
+            .iter()
+            .filter_map(|value| value["name"].as_str())
+            .collect();
+        assert_eq!(
+            names,
+            [
+                "mail_push",
+                "mail_claim",
+                "mail_ack",
+                "mail_nack",
+                "mail_list"
+            ]
+        );
     }
 }

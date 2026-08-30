@@ -13,7 +13,6 @@ use crate::domain::secrets;
 use crate::domain::validation::{ensure_payload_size, extract_header, idempotency_key};
 use crate::store;
 use crate::store::mail::{self, MailPushOutcome};
-use crate::telemetry;
 
 async fn api_key(headers: &HeaderMap, state: &AppState) -> Result<(), AppError> {
     store::auth::require_unscoped_api_key(headers, &state.pool)
@@ -63,10 +62,7 @@ pub async fn push(
 ) -> ApiResult<(StatusCode, Json<serde_json::Value>)> {
     api_key(&headers, &state).await?;
     mail::validate_mailbox_name(&name)?;
-    if let Err(error) = ensure_payload_size(body.len(), state.config.max_payload_bytes) {
-        telemetry::rejected("payload_too_large");
-        return Err(error.into());
-    }
+    ensure_payload_size(body.len(), state.config.max_payload_bytes)?;
     let payload_hash = secrets::hash_bytes(&body);
     let idempotency = idempotency_key(&headers)?;
     let key_hash = idempotency.as_deref().map(secrets::hash_secret);
@@ -75,19 +71,13 @@ pub async fn push(
         .and_then(|value| value.to_str().ok())
         .unwrap_or("application/json")
         .to_string();
-    let mut traceparent = extract_header(&headers, "traceparent");
-    let mut tracestate = extract_header(&headers, "tracestate");
+    let traceparent = extract_header(&headers, "traceparent");
+    let tracestate = extract_header(&headers, "tracestate");
     let acceptance = tracing::info_span!(
         "relay.mail.accept",
         mailbox = %name,
         idempotency_present = key_hash.is_some()
     );
-    if state.config.otel_enabled {
-        telemetry::set_span_parent(&acceptance, traceparent.as_deref(), tracestate.as_deref());
-        let generated = telemetry::trace_headers_for_span(&acceptance);
-        traceparent = traceparent.or_else(|| generated.get("traceparent").cloned());
-        tracestate = tracestate.or_else(|| generated.get("tracestate").cloned());
-    }
     let payload = serde_json::from_slice::<serde_json::Value>(&body).ok();
     let outcome = async {
         mail::push(
@@ -107,7 +97,6 @@ pub async fn push(
     }
     .instrument(acceptance)
     .await?;
-    telemetry::accepted(false);
     match outcome {
         MailPushOutcome::Created { id } => Ok((
             StatusCode::ACCEPTED,

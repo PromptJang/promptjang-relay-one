@@ -1,8 +1,0 @@
-target
-web/node_modules
-web/dist
-*.tsbuildinfo
-.git
-.env
-.DS_Store
-*.log

@@ -1,6 +1,6 @@
 ---
 name: promptjang
-description: Use this skill when the user wants to send work to another CLI agent through PromptJang, inspect or process a PromptJang mailbox, claim and acknowledge messages, or return agent results using PromptJang Relay or PromptJang Cloud. Do not use it for delegation that does not involve PromptJang.
+description: Use this skill when the user wants to send work to another CLI agent through PromptJang, inspect or process a mailbox, claim and acknowledge messages, or return agent results using PromptJang Relay, Relay One, or Cloud. Do not use it for delegation that does not involve PromptJang.
 license: Apache-2.0
 metadata:
   author: PromptJang
@@ -11,13 +11,13 @@ metadata:
 
 Use PromptJang as durable transport between CLI agents. PromptJang stores work; it does not own the agent loop. Act only when the user or current agent invocation asks you to send or consume work. Never start a background poller, scheduler, wake-up process, or autonomous agent loop.
 
-This skill requires a configured PromptJang Relay or PromptJang Cloud MCP server exposing mailbox tools.
+This skill requires a configured PromptJang Relay, Relay One, or PromptJang Cloud MCP server exposing mailbox tools.
 
 ## Select the tool dialect
 
 Before the first mailbox operation in a task, inspect the available MCP tools and read [references/tool-contracts.md](references/tool-contracts.md).
 
-- Use the Relay dialect when `mail_push`, `mail_claim`, `mail_ack`, `mail_nack`, and `mail_list` are available.
+- Use the Relay dialect for Relay or Relay One when `mail_push`, `mail_claim`, `mail_ack`, `mail_nack`, and `mail_list` are available.
 - Use the Cloud dialect when `list_mailboxes`, `list_unread`, `get_message`, `claim_message`, `ack_message`, and `send_event` are available.
 - Do not mix dialects or invent a unified tool name.
 - If neither complete dialect is available, explain that the PromptJang MCP server is not configured and stop. Do not bypass MCP by accessing a database or inventing HTTP calls.

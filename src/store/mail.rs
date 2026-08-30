@@ -58,7 +58,7 @@ pub struct MailboxMessage {
     pub id: Uuid,
     pub status: String,
     pub content_type: String,
-    pub payload: Value,
+    pub payload: Option<Value>,
     pub payload_raw: Vec<u8>,
     pub payload_sha256: String,
     pub traceparent: Option<String>,
@@ -182,22 +182,52 @@ pub async fn claim(
     lease_seconds: i64,
 ) -> Result<Vec<MailboxMessage>, DomainError> {
     let mailbox = mailbox_id(pool, name).await?;
-    let mut tx = pool.begin().await.map_err(DomainError::from)?;
-    sqlx::query("UPDATE mailbox_messages SET status='UNREAD',claim_token=NULL,claimed_until=NULL,updated_at=CURRENT_TIMESTAMP WHERE mailbox_id=?1 AND status='CLAIMED' AND claimed_until<CURRENT_TIMESTAMP")
-        .bind(mailbox.id).execute(&mut *tx).await?;
-    let ids = sqlx::query_scalar::<_, Uuid>(
-        "SELECT id FROM mailbox_messages WHERE mailbox_id=?1 AND status='UNREAD' ORDER BY created_at LIMIT ?2",
-    ).bind(mailbox.id).bind(limit).fetch_all(&mut *tx).await?;
-    let token = new_claim_token();
-    let mut claimed = Vec::with_capacity(ids.len());
-    for id in ids {
-        let message = sqlx::query_as::<_, MailboxMessage>(
-            "UPDATE mailbox_messages SET status='CLAIMED',claim_token=?2,claimed_until=datetime('now','+' || ?3 || ' seconds'),claim_count=claim_count+1,updated_at=CURRENT_TIMESTAMP WHERE id=?1 AND status='UNREAD' RETURNING id,status,content_type,payload,payload_raw,payload_sha256,traceparent,claim_token,claimed_until,claim_count,created_at,updated_at",
-        ).bind(id).bind(&token).bind(lease_seconds).fetch_one(&mut *tx).await?;
-        claimed.push(message);
+    let mut connection = pool.acquire().await.map_err(DomainError::from)?;
+    sqlx::query("BEGIN IMMEDIATE")
+        .execute(&mut *connection)
+        .await
+        .map_err(DomainError::from)?;
+    let result = async {
+        sqlx::query("UPDATE mailbox_messages SET status='UNREAD',claim_token=NULL,claimed_until=NULL,updated_at=CURRENT_TIMESTAMP WHERE mailbox_id=?1 AND status='CLAIMED' AND claimed_until<CURRENT_TIMESTAMP")
+            .bind(mailbox.id)
+            .execute(&mut *connection)
+            .await?;
+        let ids = sqlx::query_scalar::<_, Uuid>(
+            "SELECT id FROM mailbox_messages WHERE mailbox_id=?1 AND status='UNREAD' ORDER BY created_at LIMIT ?2",
+        )
+        .bind(mailbox.id)
+        .bind(limit)
+        .fetch_all(&mut *connection)
+        .await?;
+        let token = new_claim_token();
+        let mut claimed = Vec::with_capacity(ids.len());
+        for id in ids {
+            let message = sqlx::query_as::<_, MailboxMessage>(
+                "UPDATE mailbox_messages SET status='CLAIMED',claim_token=?2,claimed_until=datetime('now','+' || ?3 || ' seconds'),claim_count=claim_count+1,updated_at=CURRENT_TIMESTAMP WHERE id=?1 AND status='UNREAD' RETURNING id,status,content_type,payload,payload_raw,payload_sha256,traceparent,claim_token,claimed_until,claim_count,created_at,updated_at",
+            )
+            .bind(id)
+            .bind(&token)
+            .bind(lease_seconds)
+            .fetch_one(&mut *connection)
+            .await?;
+            claimed.push(message);
+        }
+        Ok::<_, sqlx::Error>(claimed)
     }
-    tx.commit().await.map_err(DomainError::from)?;
-    Ok(claimed)
+    .await;
+    match result {
+        Ok(claimed) => {
+            sqlx::query("COMMIT")
+                .execute(&mut *connection)
+                .await
+                .map_err(DomainError::from)?;
+            Ok(claimed)
+        }
+        Err(error) => {
+            let _ = sqlx::query("ROLLBACK").execute(&mut *connection).await;
+            Err(DomainError::from(error))
+        }
+    }
 }
 
 pub async fn acknowledge(

@@ -15,8 +15,6 @@ use crate::store;
 #[derive(Deserialize)]
 pub struct KeyInput {
     name: String,
-    #[serde(default)]
-    destination_ids: Vec<Uuid>,
 }
 
 pub async fn list_keys(
@@ -35,13 +33,8 @@ pub async fn create_key(
 ) -> ApiResult<(StatusCode, Json<serde_json::Value>)> {
     session(&headers, &state.pool).await?;
     validate_name(&input.name)?;
-    let (id, secret) = store::keys::create(
-        &state.pool,
-        &state.config.encryption_key,
-        input.name,
-        input.destination_ids,
-    )
-    .await?;
+    let (id, secret) =
+        store::keys::create(&state.pool, &state.config.encryption_key, input.name).await?;
     Ok((StatusCode::CREATED, Json(json!({"id":id,"key":secret}))))
 }
 

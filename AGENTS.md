@@ -1,38 +1,37 @@
-# AGENTS.md — promptjang-relay
+# AGENTS.md — promptjang-relay-one
 
-Self-hosted webhook delivery on PostgreSQL. One Rust binary (Axum + SQLx), Vue UI, Apache-2.0.
+Relay One is a packaged, loopback-only SQLite mailbox for CLI agents. It has no webhook delivery, PostgreSQL, Docker, login, Cloud account, agent wake-up, or background agent loop.
 
 ## Workflow rules
 
-- **Never commit to `main`.** Always: `git checkout -b <branch>` → commit → push → PR → merge. Verify the branch is correct with `git branch --show-current` before committing.
-- One logical change per PR. Squash-merge and delete the branch.
-- Land green only: `cargo fmt --check`, `cargo test`, `cargo clippy --all-targets -- -D warnings`, and `cd web && npm run build` before pushing.
-- No production `unwrap`/`expect`/`panic!` (a unit test enforces this for the worker).
-- Schema changes: add a new SQLx migration; never edit an applied one (the single-baseline window closed when the GHCR package became public).
-- Run external-state changes (image publishes, GHCR visibility) only with action-time owner confirmation, per the workspace `AGENT_HANDOFF.md`.
+- Never commit to `main`; use a branch and PR.
+- Keep the route, MCP tool, mailbox-state, and API-key contracts consistent.
+- Management APIs and the UI stay loopback-only. Producer and mailbox operations require `pj_one_` API keys.
+- Full API keys are retrievable because Relay One encrypts them with the local `master.key`.
+- Update checks may only contact the official GitHub release feed. Never download or install silently.
+- Tagging `v*` publishes portable public-beta artifacts. Require action-time owner confirmation before creating a tag.
 
-## Commands
+## Required gates
 
 ```bash
-cargo test --workspace                               # Rust unit tests (relay + mcp)
-cargo fmt && cargo clippy --all-targets -- -D warnings
-cd web && npm run build                               # vue-tsc + vite build
-docker compose up -d --build                          # local stack on :8080
+npm --prefix web ci
+npm --prefix web run build
+cargo fmt --all -- --check
+cargo test --locked
+cargo clippy --all-targets --locked -- -D warnings
 ```
+
+Also run a temporary-data-dir UAT covering public docs, key creation and reveal, push, idempotency, claim, nack, ack, restart persistence, export/import, and MCP stdio.
 
 ## Layout
 
+```text
+src/api/          loopback HTTP API and embedded UI/docs
+src/store/        SQLite key and mailbox persistence
+src/mcp.rs        stdio MCP adapter using the loopback API
+src/migration.rs  mailbox export/import
+migrations/       SQLite schema
+skills/           portable PromptJang Agent Skill
+docs/             embedded operator documentation
+web/              Vue operational UI
 ```
-src/domain/    pure policy: validation, secrets, delivery rules, errors
-src/store/     PostgreSQL persistence (auth, destinations, events, keys)
-src/api/       axum edge: state, error mapping, per-resource handlers
-src/worker/    delivery run loop + policy
-mcp/           MCP stdio server for the agent mailbox (reuses the store layer)
-migrations/    SQLx migrations (auto-applied at startup)
-docs/          operator documentation
-web/           Vue operational UI
-```
-
-## Deployment
-
-Releases are tag-driven (`v*`): CI verifies, builds the signed multi-arch image, and publishes to `ghcr.io/promptjang/promptjang-relay` with SBOM and provenance.

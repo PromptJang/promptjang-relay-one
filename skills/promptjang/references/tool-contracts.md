@@ -2,9 +2,9 @@
 
 Select one dialect from the tools exposed by the configured MCP server. Tool availability is authoritative; product names in a prompt are not.
 
-## Relay Local
+## Relay and Relay One
 
-Relay's MCP companion connects to the Relay PostgreSQL database. It may use `RELAY_MAILBOX` as a default, but an explicit `mailbox` argument wins.
+Relay exposes this dialect from its PostgreSQL companion. Relay One exposes the same dialect through its running loopback API and may use `PJ_ONE_MAILBOX` as a default. An explicit `mailbox` argument wins.
 
 | Operation | Tool | Important inputs | Result or rule |
 |---|---|---|---|

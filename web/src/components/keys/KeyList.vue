@@ -17,16 +17,14 @@ const emit = defineEmits<{ copy: [key: ApiKey]; revoke: [id: string] }>()
       <div class="key-details">
         <h3>{{ key.name }}</h3>
         <code>{{ key.prefix }}…</code>
-        <p>{{ key.unrestricted ? 'All destinations' : `${key.destination_ids.length} destinations` }} · Last used {{ key.last_used_at ? new Date(key.last_used_at).toLocaleString() : 'never' }}</p>
-        <p v-if="!key.retrievable" class="legacy-note">This key predates encrypted retrieval. Replace it to enable full-key copy.</p>
+        <p>All local mailboxes · Last used {{ key.last_used_at ? new Date(key.last_used_at).toLocaleString() : 'never' }}</p>
       </div>
       <div class="key-actions">
-        <button v-if="key.retrievable" class="secondary" :disabled="copyingId === key.id" :aria-label="`Copy full API key for ${key.name}`" @click="emit('copy', key)">{{ copyingId === key.id ? 'Copying…' : copiedId === key.id ? 'Copied' : 'Copy key' }}</button>
-        <button v-else class="secondary" disabled>Copy unavailable</button>
+        <button class="secondary" :disabled="copyingId === key.id" :aria-label="`Copy full API key for ${key.name}`" @click="emit('copy', key)">{{ copyingId === key.id ? 'Copying…' : copiedId === key.id ? 'Copied' : 'Copy key' }}</button>
         <button class="danger" @click="emit('revoke', key.id)">Revoke</button>
       </div>
     </article>
-    <p v-if="!keys.length" class="empty panel">No producer API keys.</p>
+    <p v-if="!keys.length" class="empty panel">No agent API keys.</p>
     <p class="copy-status" aria-live="polite">{{ copiedId ? 'Full API key copied to clipboard.' : '' }}</p>
   </div>
 </template>

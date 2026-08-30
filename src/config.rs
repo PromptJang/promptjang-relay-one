@@ -1,7 +1,6 @@
 use anyhow::{Context, Result};
 use base64::Engine;
 use directories::ProjectDirs;
-use ipnet::IpNet;
 use rand::RngCore;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -13,23 +12,18 @@ pub struct Config {
     pub bind: String,
     pub encryption_key: [u8; 32],
     pub max_payload_bytes: usize,
-    pub rate_limit_per_minute: i64,
     pub retention_days: i64,
-    pub worker_concurrency: usize,
-    pub delivery_timeout_seconds: u64,
-    pub retry_delays_seconds: Vec<i64>,
-    pub stuck_after_seconds: i64,
-    pub response_body_bytes: usize,
-    pub allow_private_cidrs: Vec<IpNet>,
-    pub allow_insecure_http: bool,
-    pub extra_ca_cert_path: Option<String>,
-    pub otel_enabled: bool,
+    pub mailbox_claim_limit: i64,
+    pub update_check_enabled: bool,
 }
 
 impl Config {
     pub fn load(data_dir: Option<PathBuf>, port: u16) -> Result<Self> {
         let data_dir = data_dir
-            .or_else(|| ProjectDirs::from("net", "PromptJang", "Relay One").map(|p| p.data_local_dir().to_path_buf()))
+            .or_else(|| {
+                ProjectDirs::from("net", "PromptJang", "Relay One")
+                    .map(|p| p.data_local_dir().to_path_buf())
+            })
             .context("could not determine the application data directory; use --data-dir")?;
         fs::create_dir_all(&data_dir)
             .with_context(|| format!("create data directory {}", data_dir.display()))?;
@@ -40,17 +34,11 @@ impl Config {
             bind: format!("127.0.0.1:{port}"),
             encryption_key,
             max_payload_bytes: 1_048_576,
-            rate_limit_per_minute: 10_000,
             retention_days: 30,
-            worker_concurrency: 4,
-            delivery_timeout_seconds: 15,
-            retry_delays_seconds: vec![60, 120, 240, 480, 960],
-            stuck_after_seconds: 300,
-            response_body_bytes: 10_240,
-            allow_private_cidrs: vec!["127.0.0.0/8".parse()?, "::1/128".parse()?],
-            allow_insecure_http: true,
-            extra_ca_cert_path: None,
-            otel_enabled: false,
+            mailbox_claim_limit: 100,
+            update_check_enabled: std::env::var("PJ_UPDATE_CHECK_ENABLED")
+                .map(|value| !matches!(value.to_ascii_lowercase().as_str(), "0" | "false" | "no"))
+                .unwrap_or(true),
         })
     }
 }
@@ -90,7 +78,8 @@ mod tests {
 
     #[test]
     fn key_is_created_once_and_reused() {
-        let directory = std::env::temp_dir().join(format!("relay-one-config-{}", uuid::Uuid::new_v4()));
+        let directory =
+            std::env::temp_dir().join(format!("relay-one-config-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&directory).expect("create temp directory");
         let path = directory.join("master.key");
         let first = load_or_create_key(&path).expect("create key");

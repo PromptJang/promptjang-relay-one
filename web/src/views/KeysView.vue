@@ -1,16 +1,15 @@
 <script setup lang="ts">
 import { shallowRef } from 'vue'
-import type { ApiKey, Destination } from '../types'
+import type { ApiKey } from '../types'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import KeyForm from '../components/keys/KeyForm.vue'
 import KeyList from '../components/keys/KeyList.vue'
 
 const props = defineProps<{
   keys: readonly ApiKey[]
-  destinations: readonly Destination[]
   revealKey: (id: string) => Promise<string>
 }>()
-const emit = defineEmits<{ create: [input: { name: string; destination_ids: string[] }]; revoke: [id: string] }>()
+const emit = defineEmits<{ create: [input: { name: string }]; revoke: [id: string] }>()
 const pendingRevoke = shallowRef<string | null>(null)
 const copyingId = shallowRef<string | null>(null)
 const copiedId = shallowRef<string | null>(null)
@@ -39,7 +38,7 @@ async function copyKey(key: ApiKey) {
 
 <template>
   <section class="split">
-    <KeyForm :destinations="destinations" @create="emit('create', $event)" />
+    <KeyForm @create="emit('create', $event)" />
     <KeyList :keys="keys" :copying-id="copyingId" :copied-id="copiedId" :copy-error="copyError" @copy="copyKey" @revoke="pendingRevoke = $event" />
   </section>
   <ConfirmModal :open="pendingRevoke !== null" title="Revoke API key" message="Producers using this key will stop immediately. This cannot be undone." confirm-label="Revoke key" danger @confirm="confirmRevoke" @cancel="pendingRevoke = null" />

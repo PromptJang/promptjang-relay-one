@@ -1,16 +1,13 @@
-# PromptJang Relay v0.4.0
+# PromptJang Relay One v0.1.0
 
-Relay v0.4 makes the agent mailbox a first-class operational workflow while keeping reliable webhook delivery intact.
+Public beta of a durable local mailbox for CLI agents.
 
-## Highlights
+- One executable with SQLite, mailbox API, MCP, UI, and public documentation.
+- Mailbox claim leases, acknowledgement, nack, retention, and idempotency.
+- Encrypted, owner-retrievable `pj_one_` API keys.
+- Loopback-only management with no login or Cloud account.
+- Explicit stable-release checks with a Get update / Not now prompt.
+- Mailbox export/import for local backup and movement.
+- Portable builds for macOS, Windows, and Linux on x86-64 and ARM64 where supported.
 
-- Mailbox UI for inspecting messages and lifecycle state.
-- Hardened mailbox idempotency, claim leases, acknowledgement, and requeue behavior.
-- MCP companion fixes for accurate idempotent message status.
-- Portable PromptJang Agent Skill for Relay and Cloud mailbox tools.
-- Clearer README and built-in documentation for technical and non-technical readers.
-- Copy controls for one-time API-key and signing-secret values.
-
-Relay still does not run or wake agents. The user, CLI, or scheduler owns the agent loop.
-
-Webhook signing remains Standard Webhooks v1. Review [the v0.2 to v0.3 migration guide](docs/migration-v02-v03.md) only when upgrading from the old signing contract.
+Relay One stores work. It does not wake, run, or loop an agent.
