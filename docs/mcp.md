@@ -4,7 +4,7 @@
 
 1. Keep Relay One running.
 2. Create an API key.
-3. Open **Integrations**, choose the key, and click **Install MCP** for Claude Code, Codex, or OpenCode.
+3. Open **Integrations**, choose the key, and click **Install MCP** for Claude Desktop, Claude Code, Codex, or OpenCode.
 4. Restart the client, then ask it to list PromptJang mailboxes.
 
 The installer uses the absolute path of the running Relay One executable. This avoids the common `Server disconnected` failure caused by configuring `promptjang-relay-one` when the binary is not on the client's `PATH`.

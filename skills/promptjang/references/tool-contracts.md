@@ -1,6 +1,6 @@
 # Mailbox tools
 
-Relay and Relay One expose the same tools. Always pass an explicit `mailbox`, even when a client has a default configured.
+Relay and Relay One expose the same tools. Always pass an explicit `mailbox`; neither product assigns one to the agent.
 
 | Operation | Tool | Inputs | Result |
 |---|---|---|---|

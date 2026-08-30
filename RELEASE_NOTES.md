@@ -5,6 +5,9 @@ Public beta of a durable local mailbox for CLI agents.
 - One executable with SQLite, mailbox API, MCP, UI, and public documentation.
 - Mailbox claim leases, acknowledgement, nack, retention, and idempotency.
 - Encrypted, owner-retrievable `pj_one_` API keys.
+- Guided MCP installation for Claude Desktop, Claude Code, Codex, and OpenCode using the running app's absolute executable path.
+- Explicit mailbox selection on every MCP operation, allowing one agent connection to work across mailboxes.
+- Bundled PromptJang Agent Skill plus a public install command for compatible agents.
 - Loopback-only management with no login or Cloud account.
 - Explicit stable-release checks with a Get update / Not now prompt.
 - Mailbox export/import for local backup and movement.
