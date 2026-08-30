@@ -1,5 +1,7 @@
 # PromptJang Relay One
 
+[![Build](https://github.com/PromptJang/promptjang-relay-one/actions/workflows/ci.yml/badge.svg)](https://github.com/PromptJang/promptjang-relay-one/actions/workflows/ci.yml)
+
 **A durable local mailbox for CLI agents.**
 
 ```text
