@@ -23,11 +23,13 @@ Relay One opens <http://127.0.0.1:8081>, creates its local database and encrypti
 
 Tools: `mail_push`, `mail_claim`, `mail_ack`, `mail_nack`, and `mail_list`.
 
-The release bundle includes the cross-agent skill. Install it where your agent scans skills, commonly `~/.agents/skills/promptjang`:
+Install the Relay and Relay One agent skill:
 
 ```bash
-mkdir -p ~/.agents/skills && cp -R skills/promptjang ~/.agents/skills/
+npx --yes skills add PromptJang/promptjang-relay-skill --skill promptjang -y
 ```
+
+The release bundle also includes a copy in `skills/promptjang` for offline installation.
 
 - [Quick start](docs/quickstart.md)
 - [Mailbox API](docs/api.md)

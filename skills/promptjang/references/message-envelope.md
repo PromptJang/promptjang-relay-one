@@ -25,7 +25,7 @@ PromptJang accepts plain text or JSON. Use this small JSON envelope when agents 
 }
 ```
 
-Only `task` is essential. Use `reply_to` only when the sender expects a result through PromptJang. Its value is a Relay mailbox name or a Cloud mailbox target ID, depending on the active tool dialect.
+Only `task` is essential. Use `reply_to` only when the sender expects a result through PromptJang. Its value is a Relay or Relay One mailbox name.
 
 Do not place credentials or large file contents in the envelope. Paths and repository references are context, not automatic permission to read outside the user's authorized workspace.
 
