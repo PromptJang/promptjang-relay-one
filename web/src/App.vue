@@ -7,6 +7,7 @@ import { useRelayApi } from './composables/useRelayApi'
 import { useRelayData } from './composables/useRelayData'
 import { useTheme } from './composables/useTheme'
 import KeysView from './views/KeysView.vue'
+import IntegrationsView from './views/IntegrationsView.vue'
 import MailboxesView from './views/MailboxesView.vue'
 import OverviewView from './views/OverviewView.vue'
 import SystemView from './views/SystemView.vue'
@@ -25,6 +26,7 @@ onMounted(()=>{void relay.refresh();void relay.checkUpdate()})
     <OverviewView v-if="view==='overview'" :system="relay.system.value" :mailboxes="relay.mailboxes.value" @navigate="view=$event" />
     <MailboxesView v-else-if="view==='mailboxes'" :mailboxes="relay.mailboxes.value" :messages="relay.mailboxMessages.value" :selected="relay.selectedMailbox.value" @inspect="relay.inspectMailbox" @remove="relay.deleteMailbox" />
     <KeysView v-else-if="view==='keys'" :keys="relay.keys.value" :reveal-key="relay.revealKey" @create="relay.createKey" @revoke="relay.revokeKey" />
+    <IntegrationsView v-else-if="view==='integrations'" :keys="relay.keys.value" />
     <SystemView v-else :system="relay.system.value" :update="relay.update.value" @check-update="relay.checkUpdate(true)" />
   </AppShell>
 </template>

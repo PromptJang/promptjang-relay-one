@@ -5,7 +5,6 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 pub async fn run() -> Result<()> {
     let base = std::env::var("PJ_ONE_URL").unwrap_or_else(|_| "http://127.0.0.1:8081".into());
     let key = std::env::var("PJ_ONE_API_KEY").context("PJ_ONE_API_KEY is required for MCP mode")?;
-    let default_mailbox = std::env::var("PJ_ONE_MAILBOX").ok();
     let client = reqwest::Client::new();
     let mut lines = BufReader::new(tokio::io::stdin()).lines();
     let mut output = tokio::io::stdout();
@@ -35,7 +34,6 @@ pub async fn run() -> Result<()> {
                     &client,
                     &base,
                     &key,
-                    default_mailbox.as_deref(),
                     request.get("params").unwrap_or(&Value::Null),
                 )
                 .await
@@ -64,10 +62,10 @@ async fn write(output: &mut tokio::io::Stdout, value: Value) -> Result<()> {
 
 fn tool_definitions() -> Vec<Value> {
     [
-        ("mail_push", "Push a durable message", json!({"mailbox":{"type":"string"},"payload":{},"idempotency_key":{"type":"string"}}), vec!["payload"]),
-        ("mail_claim", "Claim pending messages", json!({"mailbox":{"type":"string"},"limit":{"type":"integer"},"lease_seconds":{"type":"integer"}}), vec![]),
-        ("mail_ack", "Acknowledge a claimed message", json!({"mailbox":{"type":"string"},"id":{"type":"string"},"claim_token":{"type":"string"}}), vec!["id","claim_token"]),
-        ("mail_nack", "Return a claimed message", json!({"mailbox":{"type":"string"},"id":{"type":"string"},"claim_token":{"type":"string"}}), vec!["id","claim_token"]),
+        ("mail_push", "Push a durable message to a named mailbox", json!({"mailbox":{"type":"string","description":"Mailbox to receive the message"},"payload":{},"idempotency_key":{"type":"string"}}), vec!["mailbox","payload"]),
+        ("mail_claim", "Claim pending messages from a named mailbox", json!({"mailbox":{"type":"string","description":"Mailbox to claim from"},"limit":{"type":"integer"},"lease_seconds":{"type":"integer"}}), vec!["mailbox"]),
+        ("mail_ack", "Acknowledge a claimed message in a named mailbox", json!({"mailbox":{"type":"string"},"id":{"type":"string"},"claim_token":{"type":"string"}}), vec!["mailbox","id","claim_token"]),
+        ("mail_nack", "Return a claimed message to a named mailbox", json!({"mailbox":{"type":"string"},"id":{"type":"string"},"claim_token":{"type":"string"}}), vec!["mailbox","id","claim_token"]),
         ("mail_list", "List mailboxes", json!({}), vec![]),
     ].into_iter().map(|(name,description,properties,required)| json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required}})).collect()
 }
@@ -76,7 +74,6 @@ async fn call_tool(
     client: &reqwest::Client,
     base: &str,
     key: &str,
-    default_mailbox: Option<&str>,
     params: &Value,
 ) -> Result<Value, String> {
     let name = params
@@ -90,7 +87,6 @@ async fn call_tool(
     let mailbox = || {
         args.get("mailbox")
             .and_then(Value::as_str)
-            .or(default_mailbox)
             .ok_or("mailbox is required")
     };
     let auth = |request: reqwest::RequestBuilder| request.bearer_auth(key);
@@ -161,5 +157,21 @@ mod tests {
                 "mail_list"
             ]
         );
+    }
+
+    #[test]
+    fn every_mailbox_operation_requires_an_explicit_mailbox() {
+        for tool in tool_definitions() {
+            if tool["name"] == "mail_list" {
+                continue;
+            }
+            assert!(
+                tool["inputSchema"]["required"]
+                    .as_array()
+                    .is_some_and(|required| required.iter().any(|field| field == "mailbox")),
+                "{} must require mailbox",
+                tool["name"]
+            );
+        }
     }
 }
