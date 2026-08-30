@@ -1,5 +1,6 @@
 pub mod docs;
 pub mod health;
+pub mod integrations;
 pub mod keys;
 pub mod mail;
 pub mod updates;

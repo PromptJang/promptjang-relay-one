@@ -15,6 +15,7 @@ use tower_http::set_header::SetResponseHeaderLayer;
 
 use crate::api::handlers::{
     health::{health, ready, system},
+    integrations::{install_mcp, mcp_status},
     keys::{create_key, delete_key, list_keys, reveal_key},
     mail::{acknowledge, claim, delete_mailbox, list_mailboxes, list_messages, nack, push},
     updates::check_update,
@@ -70,6 +71,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/keys/{id}", delete(delete_key))
         .route("/api/v1/keys/{id}/secret", get(reveal_key))
         .route("/api/v1/system", get(system))
+        .route("/api/v1/integrations/mcp", get(mcp_status).post(install_mcp))
         .route("/api/v1/update", get(check_update))
         .route("/docs", get(handlers::docs::index))
         .route("/docs/", get(handlers::docs::index))

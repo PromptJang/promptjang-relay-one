@@ -15,11 +15,13 @@ One executable contains SQLite, the mailbox API, MCP server, UI, and documentati
 promptjang-relay-one
 ```
 
-Relay One opens <http://127.0.0.1:8081>, creates its local database and encryption key, and stays in the foreground. Create a `pj_one_` API key, then configure an MCP client:
+Relay One opens <http://127.0.0.1:8081>, creates its local database and encryption key, and stays in the foreground.
 
-```json
-{"mcpServers":{"promptjang":{"command":"promptjang-relay-one","args":["mcp"],"env":{"PJ_ONE_API_KEY":"pj_one_...","PJ_ONE_MAILBOX":"codex"}}}}
-```
+1. Create a `pj_one_` API key.
+2. Open **Integrations**.
+3. Select the key and click **Install MCP** for Claude Code, Codex, or OpenCode.
+
+Relay One writes the client setup with its absolute executable path. No default mailbox is configured; every operation names the mailbox it uses.
 
 Tools: `mail_push`, `mail_claim`, `mail_ack`, `mail_nack`, and `mail_list`.
 
@@ -29,7 +31,7 @@ Install the Relay and Relay One agent skill:
 npx --yes skills add PromptJang/promptjang-relay-skill --skill promptjang -y
 ```
 
-The release bundle also includes a copy in `skills/promptjang` for offline installation.
+The release bundle also includes a copy in `skills/promptjang` for offline installation. MCP supplies the tools; the skill teaches the agent the mailbox workflow.
 
 - [Quick start](docs/quickstart.md)
 - [Mailbox API](docs/api.md)

@@ -13,6 +13,9 @@ curl -X POST http://127.0.0.1:8081/v1/mail/codex/messages \
   -d '{"task":"review the current branch"}'
 ```
 
-3. Configure `promptjang-relay-one mcp` in each CLI agent. Relay One stores work; your agent decides when to claim it.
+3. Open **Integrations**, select that key, and click **Install MCP** for your CLI agent.
+4. Restart the CLI agent and ask it to list PromptJang mailboxes.
+
+Relay One stores work; your agent decides which mailbox to use and when to claim it.
 
 Use `--data-dir`, `--port`, or `serve --no-open` when the defaults do not fit.
