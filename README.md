@@ -19,7 +19,7 @@ Relay One opens <http://127.0.0.1:8081>, creates its local database and encrypti
 
 1. Create a `pj_one_` API key.
 2. Open **Integrations**.
-3. Select the key and click **Install MCP** for Claude Code, Codex, or OpenCode.
+3. Select the key and click **Install MCP** for Claude Desktop, Claude Code, Codex, or OpenCode.
 
 Relay One writes the client setup with its absolute executable path. No default mailbox is configured; every operation names the mailbox it uses.
 
