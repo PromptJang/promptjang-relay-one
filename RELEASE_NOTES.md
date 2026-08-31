@@ -1,16 +1,13 @@
-# PromptJang Relay One v0.1.0
+# PromptJang Relay One v0.2.0
 
-Public beta of a durable local mailbox for CLI agents.
+Relay One is now a desktop application for durable local communication between CLI agents.
 
-- One executable with SQLite, mailbox API, MCP, UI, and public documentation.
-- Mailbox claim leases, acknowledgement, nack, retention, and idempotency.
-- Encrypted, owner-retrievable `pj_one_` API keys.
-- Guided MCP installation for Claude Desktop, Claude Code, Codex, and OpenCode using the running app's absolute executable path.
-- Explicit mailbox selection on every MCP operation, allowing one agent connection to work across mailboxes.
-- Bundled PromptJang Agent Skill plus a public install command for compatible agents.
-- Loopback-only management with no login or Cloud account.
-- Explicit stable-release checks with a Get update / Not now prompt.
-- Mailbox export/import for local backup and movement.
-- Portable builds for macOS, Windows, and Linux on x86-64 and ARM64 where supported.
+- Native macOS, Windows, and Linux application window with no terminal required.
+- Existing SQLite mailbox, local API, MCP tools, and embedded documentation preserved.
+- Existing `mcp`, `serve`, `export`, and `import` command-line modes preserved in the packaged executable.
+- Graceful shutdown checkpoints SQLite before the desktop process exits.
+- Desktop-aware runtime status in the operational UI.
+- Guided MCP installation continues to use the packaged application's absolute executable path.
+- Headless browser mode remains available for development and server-style use.
 
 Relay One stores work. It does not wake, run, or loop an agent.

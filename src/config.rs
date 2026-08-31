@@ -15,6 +15,7 @@ pub struct Config {
     pub retention_days: i64,
     pub mailbox_claim_limit: i64,
     pub update_check_enabled: bool,
+    pub desktop_mode: bool,
 }
 
 impl Config {
@@ -39,7 +40,13 @@ impl Config {
             update_check_enabled: std::env::var("PJ_UPDATE_CHECK_ENABLED")
                 .map(|value| !matches!(value.to_ascii_lowercase().as_str(), "0" | "false" | "no"))
                 .unwrap_or(true),
+            desktop_mode: false,
         })
+    }
+
+    pub fn with_desktop_mode(mut self) -> Self {
+        self.desktop_mode = true;
+        self
     }
 }
 

@@ -31,6 +31,7 @@ pub async fn system(State(state): State<AppState>) -> ApiResult<Json<serde_json:
     Ok(Json(json!({
         "version":env!("CARGO_PKG_VERSION"),
         "runtime":"local-sqlite",
+        "surface":if state.config.desktop_mode { "desktop" } else { "browser" },
         "database_path":state.config.database_path,
         "database_bytes":database_bytes,
         "mailboxes":mailboxes,
