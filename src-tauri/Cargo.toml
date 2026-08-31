@@ -1,0 +1,24 @@
+[package]
+name = "promptjang-relay-one-desktop"
+version = "0.2.0"
+edition = "2024"
+license = "Apache-2.0"
+description = "Desktop application for PromptJang Relay One"
+
+[[bin]]
+name = "promptjang-relay-one"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.6.3", features = [] }
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+promptjang-relay-one-core = { package = "promptjang-relay-one", path = ".." }
+open = "5.4.2"
+tauri = { version = "2.11.5", features = [] }
+tauri-plugin-single-instance = "2.4.4"
+tokio = { version = "1", features = ["rt-multi-thread"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+tracing = "0.1"

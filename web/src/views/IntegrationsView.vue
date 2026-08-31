@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, shallowRef } from 'vue'
 import McpClientCard from '../components/integrations/McpClientCard.vue'
+import { useExternalLinks } from '../composables/useExternalLinks'
 import { useMcpSetup } from '../composables/useMcpSetup'
 import { useRelayApi } from '../composables/useRelayApi'
 import type { ApiKey, McpClientId } from '../types'
 
 const props=defineProps<{keys:readonly ApiKey[]}>()
 const {request}=useRelayApi()
+const {openExternal}=useExternalLinks()
 const setup=useMcpSetup(request)
 const keyId=shallowRef('')
 const copied=shallowRef(false)
@@ -19,6 +21,7 @@ async function copySkill(){
   await navigator.clipboard.writeText(command);copied.value=true
   window.setTimeout(()=>{copied.value=false},1600)
 }
+async function openSkill(){ await openExternal('https://github.com/PromptJang/promptjang-relay-skill','open_skill') }
 onMounted(()=>{keyId.value=props.keys[0]?.id??'';void setup.load()})
 </script>
 
@@ -43,11 +46,11 @@ onMounted(()=>{keyId.value=props.keys[0]?.id??'';void setup.load()})
       <p class="muted">MCP provides tools. The PromptJang skill teaches agents how to push, claim, acknowledge, and nack messages safely.</p>
       <pre>{{ setup.status.value?.skill_install_command??'Loading command…' }}</pre>
       <button class="secondary" :disabled="!setup.status.value" @click="copySkill">{{ copied?'Copied':'Copy install command' }}</button>
-      <a href="https://github.com/PromptJang/promptjang-relay-skill" target="_blank" rel="noopener">View skill repository ↗</a>
+      <button class="link" @click="openSkill">View skill repository ↗</button>
     </article>
   </section>
 </template>
 
 <style scoped>
-.layout{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,1fr);gap:18px}.setup-panel,.skill-panel{padding:24px}.setup-panel>label{max-width:460px;margin:22px 0 12px}.clients{display:grid;gap:10px;margin-top:22px}.privacy,.warning,.success{padding:11px 12px;border-radius:8px;font-size:13px}.privacy{color:var(--muted);background:var(--elevated)}.warning{color:var(--amber)}.success{color:var(--green);background:color-mix(in srgb,var(--green) 8%,var(--surface))}.skill-panel{align-self:start}.skill-panel pre{padding:14px;overflow-wrap:anywhere;white-space:pre-wrap;border:1px solid var(--border);border-radius:8px;background:var(--elevated);font-size:12px}.skill-panel button{width:100%;margin-bottom:16px}.skill-panel a{color:var(--green)}@media(max-width:900px){.layout{grid-template-columns:1fr}}
+.layout{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,1fr);gap:18px}.setup-panel,.skill-panel{padding:24px}.setup-panel>label{max-width:460px;margin:22px 0 12px}.clients{display:grid;gap:10px;margin-top:22px}.privacy,.warning,.success{padding:11px 12px;border-radius:8px;font-size:13px}.privacy{color:var(--muted);background:var(--elevated)}.warning{color:var(--amber)}.success{color:var(--green);background:color-mix(in srgb,var(--green) 8%,var(--surface))}.skill-panel{align-self:start}.skill-panel pre{padding:14px;overflow-wrap:anywhere;white-space:pre-wrap;border:1px solid var(--border);border-radius:8px;background:var(--elevated);font-size:12px}.skill-panel button{width:100%;margin-bottom:16px}.skill-panel button.link{width:auto;margin:0}@media(max-width:900px){.layout{grid-template-columns:1fr}}
 </style>

@@ -1,6 +1,6 @@
 # Quick start
 
-Run the executable. Relay One opens its dashboard at `http://127.0.0.1:8081` and stores data in the operating system's application-data directory.
+Open **PromptJang Relay One**. The desktop app starts its loopback service and stores data in the operating system's application-data directory. It does not open a terminal window.
 
 1. Create an API key in **API keys**.
 2. Push a message:
@@ -18,4 +18,4 @@ curl -X POST http://127.0.0.1:8081/v1/mail/codex/messages \
 
 Relay One stores work; your agent decides which mailbox to use and when to claim it.
 
-Use `--data-dir`, `--port`, or `serve --no-open` when the defaults do not fit.
+The packaged application is the normal path. Use `--data-dir`, `--port`, or `serve --no-open` from a terminal only for development and headless operation.

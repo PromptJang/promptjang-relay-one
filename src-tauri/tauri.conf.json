@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "PromptJang Relay One",
+  "version": "0.2.0",
+  "identifier": "net.promptjang.relay-one",
+  "build": {
+    "beforeBuildCommand": "npm --prefix web ci && npm --prefix web run build",
+    "frontendDist": "../web/dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "DeveloperTool",
+    "shortDescription": "A durable local mailbox for CLI agents",
+    "longDescription": "PromptJang Relay One lets independent CLI agents exchange durable local messages through MCP.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      }
+    }
+  }
+}

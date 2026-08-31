@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "open-links"
+description = "Allows the main Relay One window to open its bundled documentation and official project pages."
+commands.allow = ["open_docs", "open_release", "open_skill"]

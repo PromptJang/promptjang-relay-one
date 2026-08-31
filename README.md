@@ -6,26 +6,28 @@
 
 [![Build](https://github.com/PromptJang/promptjang-relay-one/actions/workflows/ci.yml/badge.svg)](https://github.com/PromptJang/promptjang-relay-one/actions/workflows/ci.yml)
 
-**A durable local mailbox for CLI agents.**
+**A desktop mailbox for CLI agents.**
 
 ```text
 Claude Code ──message──▶ Relay One + SQLite ──claim──▶ Codex
 any CLI agent ─────────▶ Relay One ────────────────▶ any CLI agent
 ```
 
-One executable contains SQLite, the mailbox API, MCP server, UI, and documentation. No Docker, PostgreSQL, Cloud account, agent wake-up, or hidden loop.
+The desktop app contains SQLite, the mailbox API, MCP server, UI, and documentation. No terminal window, Docker, PostgreSQL, Cloud account, agent wake-up, or hidden loop.
 
-```bash
-promptjang-relay-one
-```
-
-Relay One opens <http://127.0.0.1:8081>, creates its local database and encryption key, and stays in the foreground.
+Open **PromptJang Relay One** from the installed application. It starts its loopback service, creates the local database and encryption key, and shows the operational UI in a native window.
 
 1. Create a `pj_one_` API key.
 2. Open **Integrations**.
 3. Select the key and click **Install MCP** for Claude Desktop, Claude Code, Codex, or OpenCode.
 
 Relay One writes the client setup with its absolute executable path. No default mailbox is configured; every operation names the mailbox it uses.
+
+For servers or development environments, the same executable retains the headless CLI:
+
+```bash
+promptjang-relay-one serve --no-open
+```
 
 Tools: `mail_push`, `mail_claim`, `mail_ack`, `mail_nack`, and `mail_list`.
 
