@@ -61,13 +61,23 @@ async fn write(output: &mut tokio::io::Stdout, value: Value) -> Result<()> {
 }
 
 fn tool_definitions() -> Vec<Value> {
+    let mailbox = json!({
+        "type": "string",
+        "description": "Mailbox name",
+        "minLength": 1,
+        "maxLength": 100
+    });
     [
-        ("mail_push", "Push a durable message to a named mailbox", json!({"mailbox":{"type":"string","description":"Mailbox to receive the message"},"payload":{},"idempotency_key":{"type":"string"}}), vec!["mailbox","payload"]),
-        ("mail_claim", "Claim pending messages from a named mailbox", json!({"mailbox":{"type":"string","description":"Mailbox to claim from"},"limit":{"type":"integer"},"lease_seconds":{"type":"integer"}}), vec!["mailbox"]),
-        ("mail_ack", "Acknowledge a claimed message in a named mailbox", json!({"mailbox":{"type":"string"},"id":{"type":"string"},"claim_token":{"type":"string"}}), vec!["mailbox","id","claim_token"]),
-        ("mail_nack", "Return a claimed message to a named mailbox", json!({"mailbox":{"type":"string"},"id":{"type":"string"},"claim_token":{"type":"string"}}), vec!["mailbox","id","claim_token"]),
+        ("mail_push", "Push a durable message to a named mailbox", json!({"mailbox":mailbox,"payload":{"description":"JSON value or text message"},"idempotency_key":{"type":"string","description":"Optional producer deduplication key"}}), vec!["mailbox","payload"]),
+        ("mail_claim", "Claim pending messages from a named mailbox", json!({"mailbox":mailbox,"limit":{"type":"integer","minimum":1,"maximum":100,"default":10},"lease_seconds":{"type":"integer","minimum":30,"maximum":3600,"default":300}}), vec!["mailbox"]),
+        ("mail_ack", "Acknowledge a claimed message in a named mailbox", json!({"mailbox":mailbox,"id":{"type":"string","format":"uuid"},"claim_token":{"type":"string"}}), vec!["mailbox","id","claim_token"]),
+        ("mail_nack", "Return a claimed message to a named mailbox", json!({"mailbox":mailbox,"id":{"type":"string","format":"uuid"},"claim_token":{"type":"string"}}), vec!["mailbox","id","claim_token"]),
         ("mail_list", "List mailboxes", json!({}), vec![]),
-    ].into_iter().map(|(name,description,properties,required)| json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required}})).collect()
+    ].into_iter().map(|(name,description,properties,required)| {
+        let mut input_schema=json!({"type":"object","properties":properties});
+        if !required.is_empty(){input_schema["required"]=json!(required)}
+        json!({"name":name,"description":description,"inputSchema":input_schema})
+    }).collect()
 }
 
 async fn call_tool(
@@ -173,5 +183,28 @@ mod tests {
                 tool["name"]
             );
         }
+    }
+
+    #[test]
+    fn tool_schemas_match_the_agent_mailbox_fixture() {
+        let fixture: Value =
+            serde_json::from_str(include_str!("../tests/fixtures/agent-mailbox-v1.json"))
+                .expect("agent mailbox fixture must be valid JSON");
+        let actual = Value::Array(
+            tool_definitions()
+                .into_iter()
+                .map(|tool| {
+                    json!({
+                        "name": tool["name"],
+                        "inputSchema": tool["inputSchema"]
+                    })
+                })
+                .collect(),
+        );
+        assert_eq!(actual, fixture["tools"]);
+        assert_eq!(
+            fixture["states"],
+            json!(["UNREAD", "CLAIMED", "ACKNOWLEDGED"])
+        );
     }
 }
