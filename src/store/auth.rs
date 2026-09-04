@@ -24,6 +24,12 @@ async fn key_id(headers: &HeaderMap, pool: &SqlitePool) -> Result<Uuid, DomainEr
         .bind(id)
         .execute(pool)
         .await?;
+    if let Some(client) = headers
+        .get("X-PromptJang-MCP-Client")
+        .and_then(|value| value.to_str().ok())
+    {
+        crate::store::integrations::activity(pool, client, id).await?;
+    }
     Ok(id)
 }
 

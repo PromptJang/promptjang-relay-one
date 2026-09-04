@@ -1,10 +1,12 @@
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::time::Duration;
 
 use axum::Json;
 use axum::extract::State;
 use serde::Deserialize;
 use serde_json::json;
+use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
 
 use crate::api::AppState;
@@ -61,9 +63,16 @@ pub struct InstallInput {
     key_id: Uuid,
 }
 
+#[derive(Deserialize)]
+pub struct DiagnoseInput {
+    client: McpClient,
+    key_id: Uuid,
+}
+
 pub async fn mcp_status(State(state): State<AppState>) -> ApiResult<Json<serde_json::Value>> {
     let executable = std::env::current_exe()
         .map_err(|error| DomainError::internal(format!("resolve Relay One executable: {error}")))?;
+    let installations = store::integrations::list(&state.pool).await?;
     let clients = [
         McpClient::ClaudeDesktop,
         McpClient::Claude,
@@ -76,11 +85,19 @@ pub async fn mcp_status(State(state): State<AppState>) -> ApiResult<Json<serde_j
             McpClient::ClaudeDesktop => claude_desktop_config_path(),
             _ => find_command(client.command()),
         };
+        let installation = installations
+            .iter()
+            .find(|installation| installation.client == client.id());
         json!({
-                "id": client.id(),
+            "id": client.id(),
             "label": client.label(),
             "available": command.is_some(),
             "command_path": command,
+            "configured": installation.is_some(),
+            "key_id": installation.map(|value| value.key_id),
+            "configured_at": installation.map(|value| value.configured_at),
+            "adapter_verified_at": installation.and_then(|value| value.adapter_verified_at),
+            "last_activity_at": installation.and_then(|value| value.last_activity_at),
         })
     })
     .collect::<Vec<_>>();
@@ -116,12 +133,110 @@ pub async fn install_mcp(
     })
     .await
     .map_err(|error| DomainError::internal(format!("MCP installer task failed: {error}")))??;
+    store::integrations::configured(&state.pool, input.client.id(), input.key_id).await?;
     Ok(Json(json!({
         "installed": true,
         "client": input.client.id(),
         "server_name": SERVER_NAME,
         "verification": result
     })))
+}
+
+pub async fn diagnose_mcp(
+    State(state): State<AppState>,
+    Json(input): Json<DiagnoseInput>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let key = store::keys::reveal(&state.pool, &state.config.encryption_key, input.key_id).await?;
+    let executable = std::env::current_exe()
+        .map_err(|error| DomainError::internal(format!("resolve Relay One executable: {error}")))?;
+    verify_mcp_adapter(&executable, &format!("http://{}", state.config.bind), &key).await?;
+    if !store::integrations::adapter_verified(&state.pool, input.client.id(), input.key_id).await? {
+        return Err(DomainError::conflict(
+            "install MCP for this client and API key before running diagnostics",
+        )
+        .into());
+    }
+    Ok(Json(json!({
+        "client": input.client.id(),
+        "adapter_verified": true,
+        "message": "The MCP process started, completed a handshake, listed all mailbox tools, and authenticated with Relay One."
+    })))
+}
+
+async fn verify_mcp_adapter(
+    executable: &Path,
+    relay_url: &str,
+    key: &str,
+) -> Result<(), DomainError> {
+    let mut child = tokio::process::Command::new(executable)
+        .arg("mcp")
+        .env("PJ_ONE_URL", relay_url)
+        .env("PJ_ONE_API_KEY", key)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true)
+        .spawn()
+        .map_err(|error| DomainError::internal(format!("start MCP adapter: {error}")))?;
+    let requests = concat!(
+        "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}\n",
+        "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}\n",
+        "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"mail_list\",\"arguments\":{}}}\n"
+    );
+    let mut stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| DomainError::internal("MCP adapter stdin was unavailable"))?;
+    stdin
+        .write_all(requests.as_bytes())
+        .await
+        .map_err(|error| DomainError::internal(format!("write MCP diagnostic: {error}")))?;
+    drop(stdin);
+    let output = tokio::time::timeout(Duration::from_secs(5), child.wait_with_output())
+        .await
+        .map_err(|_| DomainError::internal("MCP adapter diagnostic timed out"))?
+        .map_err(|error| DomainError::internal(format!("wait for MCP adapter: {error}")))?;
+    if !output.status.success() {
+        let detail = String::from_utf8_lossy(&output.stderr).replace(key, "[redacted]");
+        return Err(DomainError::internal(format!(
+            "MCP adapter exited unsuccessfully: {}",
+            detail.trim()
+        )));
+    }
+    let responses = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(serde_json::from_str::<serde_json::Value>)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| DomainError::internal(format!("parse MCP diagnostic: {error}")))?;
+    if responses.len() != 3
+        || responses
+            .iter()
+            .any(|response| response.get("error").is_some())
+    {
+        return Err(DomainError::internal(
+            "MCP adapter did not complete the expected handshake",
+        ));
+    }
+    let tool_names = responses[1]["result"]["tools"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|tool| tool["name"].as_str())
+        .collect::<Vec<_>>();
+    if tool_names
+        != [
+            "mail_push",
+            "mail_claim",
+            "mail_ack",
+            "mail_nack",
+            "mail_list",
+        ]
+    {
+        return Err(DomainError::internal(
+            "MCP adapter returned an unexpected tool contract",
+        ));
+    }
+    Ok(())
 }
 
 fn install_for_client(
@@ -134,6 +249,7 @@ fn install_for_client(
     let relay_executable = relay_executable.to_string_lossy().to_string();
     let url_env = format!("PJ_ONE_URL={relay_url}");
     let key_env = format!("PJ_ONE_API_KEY={key}");
+    let client_env = format!("PJ_ONE_CLIENT={}", client.id());
 
     let (args, verification): (Vec<String>, String) = match client {
         McpClient::ClaudeDesktop => unreachable!("Claude Desktop uses its JSON configuration"),
@@ -150,6 +266,8 @@ fn install_for_client(
                 url_env,
                 "--env".into(),
                 key_env,
+                "--env".into(),
+                client_env,
                 "--".into(),
                 relay_executable,
                 "mcp".into(),
@@ -166,6 +284,8 @@ fn install_for_client(
                 url_env,
                 "--env".into(),
                 key_env,
+                "--env".into(),
+                client_env,
                 "--".into(),
                 relay_executable,
                 "mcp".into(),
@@ -181,6 +301,8 @@ fn install_for_client(
                 url_env,
                 "--env".into(),
                 key_env,
+                "--env".into(),
+                client_env,
                 "--".into(),
                 relay_executable,
                 "mcp".into(),
@@ -258,7 +380,7 @@ fn install_claude_desktop_at(
         json!({
             "command": relay_executable.to_string_lossy(),
             "args": ["mcp"],
-            "env": {"PJ_ONE_URL":relay_url,"PJ_ONE_API_KEY":key}
+            "env": {"PJ_ONE_URL":relay_url,"PJ_ONE_API_KEY":key,"PJ_ONE_CLIENT":"claude-desktop"}
         }),
     );
     let parent = path
@@ -398,6 +520,10 @@ mod tests {
             value["mcpServers"]["promptjang"]["env"]
                 .get("PJ_ONE_MAILBOX")
                 .is_none()
+        );
+        assert_eq!(
+            value["mcpServers"]["promptjang"]["env"]["PJ_ONE_CLIENT"],
+            "claude-desktop"
         );
         std::fs::remove_dir_all(directory).expect("remove temp directory");
     }

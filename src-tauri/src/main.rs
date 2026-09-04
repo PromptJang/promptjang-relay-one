@@ -7,6 +7,8 @@ use std::sync::{Arc, Mutex};
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use promptjang_relay_one_core::{config::Config, mcp, migration, runtime};
+use tauri::menu::MenuBuilder;
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Manager, RunEvent, State, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 use tokio_util::sync::CancellationToken;
 
@@ -46,6 +48,14 @@ struct DesktopRuntime {
 
 struct DesktopLinks {
     docs: String,
+}
+
+fn show_dashboard(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
 }
 
 async fn open_target(url: String) -> Result<(), String> {
@@ -121,11 +131,7 @@ fn run_desktop(data_dir: Option<PathBuf>, port: u16) -> Result<()> {
     let config = Arc::new(Config::load(data_dir, port)?.with_desktop_mode());
     let mut builder = tauri::Builder::default().plugin(tauri_plugin_single_instance::init(
         |app, _arguments, _working_directory| {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.unminimize();
-                let _ = window.set_focus();
-            }
+            show_dashboard(app);
         },
     ));
     builder = builder.invoke_handler(tauri::generate_handler![
@@ -159,6 +165,39 @@ fn run_desktop(data_dir: Option<PathBuf>, port: u16) -> Result<()> {
             .center()
             .build()
             .context("create Relay One desktop window")?;
+
+        let tray_menu = MenuBuilder::new(app)
+            .text("open", "Open Relay One")
+            .separator()
+            .text("quit", "Quit Relay One")
+            .build()
+            .context("build Relay One tray menu")?;
+        let mut tray = TrayIconBuilder::with_id("relay-one")
+            .menu(&tray_menu)
+            .show_menu_on_left_click(false)
+            .tooltip("PromptJang Relay One");
+        if let Some(icon) = app.default_window_icon() {
+            tray = tray.icon(icon.clone());
+        }
+        tray.on_menu_event(|app, event| match event.id().as_ref() {
+            "open" => show_dashboard(app),
+            "quit" => request_exit(app),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if matches!(
+                event,
+                TrayIconEvent::Click {
+                    button: MouseButton::Left,
+                    button_state: MouseButtonState::Up,
+                    ..
+                }
+            ) {
+                show_dashboard(tray.app_handle());
+            }
+        })
+        .build(app)
+        .context("create Relay One tray icon")?;
         Ok(())
     });
     let app = builder
@@ -171,8 +210,12 @@ fn run_desktop(data_dir: Option<PathBuf>, port: u16) -> Result<()> {
             ..
         } if label == "main" => {
             api.prevent_close();
-            request_exit(app_handle);
+            if let Some(window) = app_handle.get_webview_window("main") {
+                let _ = window.hide();
+            }
         }
+        #[cfg(target_os = "macos")]
+        RunEvent::Reopen { .. } => show_dashboard(app_handle),
         RunEvent::ExitRequested { api, .. } => {
             let state = app_handle.state::<DesktopRuntime>();
             if !state.exiting.load(Ordering::Acquire) {

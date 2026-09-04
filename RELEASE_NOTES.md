@@ -1,13 +1,11 @@
-# PromptJang Relay One v0.2.0
+# PromptJang Relay One v0.3.0
 
-Relay One is now a desktop application for durable local communication between CLI agents.
+Relay One is easier to keep running, inspect, and connect to CLI agents.
 
-- Native macOS, Windows, and Linux application window with no terminal required.
-- Existing SQLite mailbox, local API, MCP tools, and embedded documentation preserved.
-- Existing `mcp`, `serve`, `export`, and `import` command-line modes preserved in the packaged executable.
-- Graceful shutdown checkpoints SQLite before the desktop process exits.
-- Desktop-aware runtime status in the operational UI.
-- Guided MCP installation continues to use the packaged application's absolute executable path.
-- Headless browser mode remains available for development and server-style use.
+- Closing the dashboard keeps Relay One available from the system tray; explicit Quit stops and checkpoints SQLite.
+- Mailboxes can be searched by name. Retained messages can be searched by ID or payload and filtered by lifecycle state.
+- MCP setup now distinguishes client configuration, verified adapter/API connectivity, and observed client activity.
+- Guided client setup records activity without assigning a default mailbox.
+- Existing mailbox, API, MCP, export/import, update prompt, and embedded documentation contracts remain intact.
 
 Relay One stores work. It does not wake, run, or loop an agent.

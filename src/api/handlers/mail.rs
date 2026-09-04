@@ -14,10 +14,9 @@ use crate::domain::validation::{ensure_payload_size, extract_header, idempotency
 use crate::store;
 use crate::store::mail::{self, MailPushOutcome};
 
-async fn api_key(headers: &HeaderMap, state: &AppState) -> Result<(), AppError> {
+async fn api_key(headers: &HeaderMap, state: &AppState) -> Result<uuid::Uuid, AppError> {
     store::auth::require_unscoped_api_key(headers, &state.pool)
         .await
-        .map(|_| ())
         .map_err(|_| AppError::unauthorized("invalid API key"))
 }
 
@@ -167,6 +166,15 @@ pub async fn list_mailboxes(
     headers: HeaderMap,
 ) -> ApiResult<Json<serde_json::Value>> {
     crate::api::handlers::session(&headers, &state.pool).await?;
+    let mailboxes = store::mail::list_mailboxes(&state.pool).await?;
+    Ok(Json(json!({"mailboxes":mailboxes})))
+}
+
+pub async fn list_mailboxes_for_agent(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<Json<serde_json::Value>> {
+    api_key(&headers, &state).await?;
     let mailboxes = store::mail::list_mailboxes(&state.pool).await?;
     Ok(Json(json!({"mailboxes":mailboxes})))
 }

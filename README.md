@@ -13,13 +13,14 @@ Claude Code ──message──▶ Relay One + SQLite ──claim──▶ Codex
 any CLI agent ─────────▶ Relay One ────────────────▶ any CLI agent
 ```
 
-The desktop app contains SQLite, the mailbox API, MCP server, UI, and documentation. No terminal window, Docker, PostgreSQL, Cloud account, agent wake-up, or hidden loop.
+The desktop app contains SQLite, the mailbox API, MCP server, UI, and documentation. No terminal window, Docker, PostgreSQL, Cloud account, agent wake-up, or hidden loop. Closing the window keeps the mailbox available from the system tray; **Quit Relay One** stops it.
 
 Open **PromptJang Relay One** from the installed application. It starts its loopback service, creates the local database and encryption key, and shows the operational UI in a native window.
 
 1. Create a `pj_one_` API key.
 2. Open **Integrations**.
 3. Select the key and click **Install MCP** for Claude Desktop, Claude Code, Codex, or OpenCode.
+4. Run **MCP check** to verify the local adapter, then use the agent once to confirm live activity.
 
 Relay One writes the client setup with its absolute executable path. No default mailbox is configured; every operation names the mailbox it uses.
 
@@ -37,7 +38,7 @@ Install the Relay and Relay One agent skill:
 npx --yes skills add PromptJang/promptjang-relay-skill --skill promptjang -y
 ```
 
-The release bundle also includes a copy in `skills/promptjang` for offline installation. MCP supplies the tools; the skill teaches the agent the mailbox workflow.
+MCP supplies the tools; the public skill teaches the agent the mailbox workflow.
 
 - [Quick start](docs/quickstart.md)
 - [Mailbox API](docs/api.md)
