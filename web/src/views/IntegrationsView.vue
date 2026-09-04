@@ -15,6 +15,7 @@ const copied=shallowRef(false)
 const hasKeys=computed(()=>props.keys.length>0)
 
 async function install(client:McpClientId){ if(keyId.value) await setup.install(client,keyId.value) }
+async function diagnose(client:McpClientId){ if(keyId.value) await setup.diagnose(client,keyId.value) }
 async function copySkill(){
   const command=setup.status.value?.skill_install_command
   if(!command)return
@@ -35,9 +36,9 @@ onMounted(()=>{keyId.value=props.keys[0]?.id??'';void setup.load()})
       <p v-if="!hasKeys" class="warning">Create an API key first.</p>
       <p class="privacy">The selected key is stored in the client’s local MCP configuration. No mailbox is fixed; the agent chooses a mailbox on every tool call.</p>
       <p v-if="setup.error.value" class="error banner" role="alert">{{ setup.error.value }}</p>
-      <p v-if="setup.result.value" class="success" role="status">Installed for {{ setup.result.value.client }}. {{ setup.result.value.verification }}</p>
+      <p v-if="setup.result.value" class="success" role="status">{{ setup.result.value.client }}: {{ setup.result.value.verification }}</p>
       <div v-if="setup.status.value" class="clients">
-        <McpClientCard v-for="client in setup.status.value.clients" :key="client.id" :client="client" :pending="setup.pendingClient.value===client.id" :disabled="!keyId || Boolean(setup.pendingClient.value)" @install="install" />
+        <McpClientCard v-for="client in setup.status.value.clients" :key="client.id" :client="client" :selected-key-id="keyId" :pending="setup.pendingClient.value===client.id" :diagnosing="setup.pendingDiagnostic.value===client.id" :disabled="!keyId || Boolean(setup.pendingClient.value) || Boolean(setup.pendingDiagnostic.value)" @install="install" @diagnose="diagnose" />
       </div>
     </article>
     <article class="panel skill-panel">

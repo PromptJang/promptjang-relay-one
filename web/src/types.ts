@@ -11,6 +11,10 @@ export interface SystemStatus {
 }
 export interface UpdateInfo { enabled:boolean; available:boolean; current_version:string; latest_version?:string; release_url:string; release_notes?:string; checked_at:string; check_error?:string }
 export type McpClientId = 'claude-desktop' | 'claude-code' | 'codex' | 'opencode'
-export interface McpClientStatus { id:McpClientId; label:string; available:boolean; command_path?:string }
+export interface McpClientStatus {
+  id:McpClientId; label:string; available:boolean; command_path?:string
+  configured:boolean; key_id?:string; configured_at?:string; adapter_verified_at?:string; last_activity_at?:string
+}
 export interface McpStatus { server_name:string; relay_url:string; relay_executable:string; clients:McpClientStatus[]; skill_install_command:string }
 export interface McpInstallResult { installed:boolean; client:McpClientId; server_name:string; verification:string }
+export interface McpDiagnosticResult { client:McpClientId; adapter_verified:boolean; message:string }

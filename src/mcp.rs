@@ -5,6 +5,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 pub async fn run() -> Result<()> {
     let base = std::env::var("PJ_ONE_URL").unwrap_or_else(|_| "http://127.0.0.1:8081".into());
     let key = std::env::var("PJ_ONE_API_KEY").context("PJ_ONE_API_KEY is required for MCP mode")?;
+    let mcp_client = std::env::var("PJ_ONE_CLIENT").ok();
     let client = reqwest::Client::new();
     let mut lines = BufReader::new(tokio::io::stdin()).lines();
     let mut output = tokio::io::stdout();
@@ -34,6 +35,7 @@ pub async fn run() -> Result<()> {
                     &client,
                     &base,
                     &key,
+                    mcp_client.as_deref(),
                     request.get("params").unwrap_or(&Value::Null),
                 )
                 .await
@@ -84,6 +86,7 @@ async fn call_tool(
     client: &reqwest::Client,
     base: &str,
     key: &str,
+    mcp_client: Option<&str>,
     params: &Value,
 ) -> Result<Value, String> {
     let name = params
@@ -99,9 +102,20 @@ async fn call_tool(
             .and_then(Value::as_str)
             .ok_or("mailbox is required")
     };
-    let auth = |request: reqwest::RequestBuilder| request.bearer_auth(key);
+    let auth = |request: reqwest::RequestBuilder| {
+        let request = request.bearer_auth(key);
+        if let Some(client) = mcp_client {
+            request.header("X-PromptJang-MCP-Client", client)
+        } else {
+            request
+        }
+    };
     let response = match name {
-        "mail_list" => client.get(format!("{base}/api/v1/mail")).send().await,
+        "mail_list" => {
+            auth(client.get(format!("{base}/v1/mailboxes")))
+                .send()
+                .await
+        }
         "mail_push" => {
             let mut request = auth(client.post(format!("{base}/v1/mail/{}/messages", mailbox()?)))
                 .json(args.get("payload").ok_or("payload is required")?);

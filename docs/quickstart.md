@@ -14,8 +14,9 @@ curl -X POST http://127.0.0.1:8081/v1/mail/codex/messages \
 ```
 
 3. Open **Integrations**, select that key, and click **Install MCP** for your CLI agent.
-4. Restart the CLI agent and ask it to list PromptJang mailboxes.
+4. Run **MCP check**. This starts the packaged adapter, performs the MCP handshake, lists its five tools, and authenticates against Relay One.
+5. Restart the CLI agent and ask it to list PromptJang mailboxes. **Agent activity detected** appears after the client makes its first mailbox request.
 
 Relay One stores work; your agent decides which mailbox to use and when to claim it.
 
-The packaged application is the normal path. Use `--data-dir`, `--port`, or `serve --no-open` from a terminal only for development and headless operation.
+The packaged application is the normal path. Closing its window leaves the mailbox running in the system tray. Use **Quit Relay One** from the tray to stop it. Use `--data-dir`, `--port`, or `serve --no-open` from a terminal only for development and headless operation.

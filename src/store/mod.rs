@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod integrations;
 pub mod keys;
 pub mod mail;
 

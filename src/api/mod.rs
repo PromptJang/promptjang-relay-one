@@ -15,9 +15,12 @@ use tower_http::set_header::SetResponseHeaderLayer;
 
 use crate::api::handlers::{
     health::{health, ready, system},
-    integrations::{install_mcp, mcp_status},
+    integrations::{diagnose_mcp, install_mcp, mcp_status},
     keys::{create_key, delete_key, list_keys, reveal_key},
-    mail::{acknowledge, claim, delete_mailbox, list_mailboxes, list_messages, nack, push},
+    mail::{
+        acknowledge, claim, delete_mailbox, list_mailboxes, list_mailboxes_for_agent,
+        list_messages, nack, push,
+    },
     updates::check_update,
 };
 
@@ -72,11 +75,13 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/keys/{id}/secret", get(reveal_key))
         .route("/api/v1/system", get(system))
         .route("/api/v1/integrations/mcp", get(mcp_status).post(install_mcp))
+        .route("/api/v1/integrations/mcp/diagnose", post(diagnose_mcp))
         .route("/api/v1/update", get(check_update))
         .route("/docs", get(handlers::docs::index))
         .route("/docs/", get(handlers::docs::index))
         .route("/docs/{name}", get(handlers::docs::article))
         .route("/v1/mail/{name}/messages", post(push))
+        .route("/v1/mailboxes", get(list_mailboxes_for_agent))
         .route("/v1/mail/{name}/claim", post(claim))
         .route("/v1/mail/{name}/messages/{id}/ack", post(acknowledge))
         .route("/v1/mail/{name}/messages/{id}/nack", post(nack))
