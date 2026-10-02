@@ -14,6 +14,8 @@ pub struct RecoveryPlan {
     pub parent_pid: u32,
     #[serde(default)]
     pub supervisor_pid: u32,
+    #[serde(default)]
+    pub supervisor_started: u64,
     pub application: PathBuf,
     pub executable: PathBuf,
     pub previous: PathBuf,
@@ -28,7 +30,10 @@ pub fn resume_if_needed(data_dir: &Path) -> Result<bool> {
         return Ok(false);
     }
     let mut plan: RecoveryPlan = serde_json::from_slice(&fs::read(&path)?)?;
-    if plan.supervisor_pid != 0 && alive(plan.supervisor_pid) {
+    validate_plan(&plan)?;
+    if plan.supervisor_pid != 0
+        && process_started(plan.supervisor_pid) == Some(plan.supervisor_started)
+    {
         return Ok(false);
     }
     plan.parent_pid = std::process::id();
@@ -148,6 +153,7 @@ pub fn prepare(data_dir: &Path, port: u16, version: String) -> Result<(PathBuf, 
     let plan = RecoveryPlan {
         parent_pid: std::process::id(),
         supervisor_pid: 0,
+        supervisor_started: 0,
         application,
         executable,
         previous,
@@ -171,6 +177,38 @@ fn alive(pid: u32) -> bool {
     system.process(Pid::from_u32(pid)).is_some()
 }
 
+fn process_started(pid: u32) -> Option<u64> {
+    let mut system = System::new();
+    system.refresh_processes(ProcessesToUpdate::Some(&[Pid::from_u32(pid)]), true);
+    system
+        .process(Pid::from_u32(pid))
+        .map(|process| process.start_time())
+}
+
+fn validate_plan(plan: &RecoveryPlan) -> Result<()> {
+    anyhow::ensure!(
+        plan.data_dir.is_absolute() && plan.executable.is_absolute(),
+        "Recovery paths must be absolute"
+    );
+    anyhow::ensure!(
+        plan.previous == plan.data_dir.join("previous-update/application"),
+        "Unexpected recovery backup path"
+    );
+    anyhow::ensure!(
+        plan.application == application_root(&plan.executable),
+        "Recovery target is not the recorded application"
+    );
+    anyhow::ensure!(
+        !plan.data_dir.starts_with(&plan.application),
+        "Recovery data cannot be inside the application"
+    );
+    anyhow::ensure!(
+        plan.previous.exists(),
+        "Recovery application backup is missing"
+    );
+    Ok(())
+}
+
 pub fn supervise(path: &Path) -> Result<()> {
     let lock_path = path
         .parent()
@@ -186,7 +224,10 @@ pub fn supervise(path: &Path) -> Result<()> {
         return Ok(());
     }
     let mut plan: RecoveryPlan = serde_json::from_slice(&fs::read(path)?)?;
+    validate_plan(&plan)?;
     plan.supervisor_pid = std::process::id();
+    plan.supervisor_started =
+        process_started(plan.supervisor_pid).context("identify recovery process")?;
     fs::write(path, serde_json::to_vec(&plan)?)?;
     for _ in 0..120 {
         if !path.exists() {
@@ -333,6 +374,7 @@ mod tests {
         let plan = RecoveryPlan {
             parent_pid: 0,
             supervisor_pid: 0,
+            supervisor_started: 0,
             application: root.join("app"),
             executable: root.join("app/bin"),
             previous: root.join("backup/application"),
