@@ -28,6 +28,9 @@ pub async fn system(State(state): State<AppState>) -> ApiResult<Json<serde_json:
     let database_bytes = std::fs::metadata(&state.config.database_path)
         .map(|m| m.len())
         .unwrap_or(0);
+    let last_update = std::fs::read(state.config.data_dir.join("last-update.json"))
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok());
     Ok(Json(json!({
         "version":env!("CARGO_PKG_VERSION"),
         "runtime":"local-sqlite",
@@ -37,6 +40,7 @@ pub async fn system(State(state): State<AppState>) -> ApiResult<Json<serde_json:
         "mailboxes":mailboxes,
         "messages":{"unread":unread,"claimed":claimed,"acknowledged":acknowledged},
         "update_check_enabled":state.config.update_check_enabled,
+        "last_update":last_update,
         "limits":{"max_payload_bytes":state.config.max_payload_bytes,"retention_days":state.config.retention_days,"max_claim_batch":state.config.mailbox_claim_limit}
     })))
 }

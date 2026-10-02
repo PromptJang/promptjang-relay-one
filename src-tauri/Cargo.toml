@@ -1,6 +1,6 @@
 [package]
 name = "promptjang-relay-one-desktop"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 license = "Apache-2.0"
 description = "Desktop application for PromptJang Relay One"
@@ -22,3 +22,8 @@ tauri-plugin-single-instance = "2.4.4"
 tokio = { version = "1", features = ["rt-multi-thread"] }
 tokio-util = { version = "0.7", features = ["rt"] }
 tracing = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+sysinfo = "0.38"
+tauri-plugin-updater = "2.13.1"

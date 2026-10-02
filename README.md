@@ -47,6 +47,6 @@ MCP supplies the tools; the public skill teaches the agent the mailbox workflow.
 - [Operations](docs/operations.md)
 - [Security](docs/security.md)
 
-Relay One checks the official GitHub stable-release feed and asks before opening an update. It never downloads or installs silently.
+Relay One checks the official GitHub stable-release feed. Desktop v0.4 builds can verify and install signed updates after confirmation, with startup recovery; browser/CLI installs stay manual. See [verified updates](docs/verified-updates.md). It never downloads or installs silently.
 
 Apache-2.0 licensed.

@@ -1,0 +1,113 @@
+{
+  "mail_push": {
+    "type": "object",
+    "required": [
+      "id",
+      "mailbox",
+      "status"
+    ],
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "mailbox": {
+        "type": "string"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "UNREAD",
+          "CLAIMED",
+          "ACKNOWLEDGED"
+        ]
+      },
+      "idempotent_replay": {
+        "type": "boolean"
+      }
+    }
+  },
+  "mail_claim": {
+    "type": "object",
+    "required": [
+      "mailbox",
+      "lease_seconds",
+      "messages"
+    ],
+    "properties": {
+      "mailbox": {
+        "type": "string"
+      },
+      "lease_seconds": {
+        "type": "integer"
+      },
+      "messages": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "id",
+            "claim_token",
+            "payload",
+            "payload_json"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "claim_token": {
+              "type": "string"
+            },
+            "payload": {
+              "type": "string"
+            },
+            "payload_json": {}
+          }
+        }
+      }
+    }
+  },
+  "mail_ack": {
+    "type": "object",
+    "required": [
+      "id",
+      "status"
+    ],
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "status": {
+        "const": "ACKNOWLEDGED"
+      }
+    }
+  },
+  "mail_nack": {
+    "type": "object",
+    "required": [
+      "id",
+      "status"
+    ],
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "status": {
+        "const": "UNREAD"
+      }
+    }
+  },
+  "mail_list": {
+    "type": "object",
+    "required": [
+      "mailboxes"
+    ],
+    "properties": {
+      "mailboxes": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

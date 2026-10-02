@@ -78,6 +78,9 @@ pub async fn push(
         idempotency_present = key_hash.is_some()
     );
     let payload = serde_json::from_slice::<serde_json::Value>(&body).ok();
+    if let Some(value) = &payload {
+        crate::domain::envelope::validate(value)?;
+    }
     let outcome = async {
         mail::push(
             &state.pool,

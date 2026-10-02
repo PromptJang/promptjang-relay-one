@@ -7,6 +7,7 @@ export interface SystemStatus {
   version:string; runtime:string; surface:'desktop'|'browser'; database_path:string; database_bytes:number; mailboxes:number
   messages:{unread:number;claimed:number;acknowledged:number}
   update_check_enabled:boolean
+  last_update?: { version:string; outcome:'installed'|'rolled-back' } | null
   limits:{max_payload_bytes:number;retention_days:number;max_claim_batch:number}
 }
 export interface UpdateInfo { enabled:boolean; available:boolean; current_version:string; latest_version?:string; release_url:string; release_notes?:string; checked_at:string; check_error?:string }

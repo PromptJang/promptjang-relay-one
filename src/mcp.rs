@@ -31,7 +31,7 @@ pub async fn run() -> Result<()> {
             ),
             "tools/list" => Ok(json!({"tools": tool_definitions()})),
             "tools/call" => {
-                call_tool(
+                match call_tool(
                     &client,
                     &base,
                     &key,
@@ -39,6 +39,12 @@ pub async fn run() -> Result<()> {
                     request.get("params").unwrap_or(&Value::Null),
                 )
                 .await
+                {
+                    Ok(value) => Ok(value),
+                    Err(message) => {
+                        Ok(json!({"content":[{"type":"text","text":message}],"isError":true}))
+                    }
+                }
             }
             _ => Err(format!("unknown method: {method}")),
         };
@@ -70,7 +76,7 @@ fn tool_definitions() -> Vec<Value> {
         "maxLength": 100
     });
     [
-        ("mail_push", "Push a durable message to a named mailbox", json!({"mailbox":mailbox,"payload":{"description":"JSON value or text message"},"idempotency_key":{"type":"string","description":"Optional producer deduplication key"}}), vec!["mailbox","payload"]),
+        ("mail_push", "Push a durable message to a named mailbox", json!({"mailbox":mailbox,"payload":{"description":"JSON value or text message; optional structured task/result uses schema: promptjang.agent-message.v1"},"idempotency_key":{"type":"string","description":"Optional producer deduplication key"}}), vec!["mailbox","payload"]),
         ("mail_claim", "Claim pending messages from a named mailbox", json!({"mailbox":mailbox,"limit":{"type":"integer","minimum":1,"maximum":100,"default":10},"lease_seconds":{"type":"integer","minimum":30,"maximum":3600,"default":300}}), vec!["mailbox"]),
         ("mail_ack", "Acknowledge a claimed message in a named mailbox", json!({"mailbox":mailbox,"id":{"type":"string","format":"uuid"},"claim_token":{"type":"string"}}), vec!["mailbox","id","claim_token"]),
         ("mail_nack", "Return a claimed message to a named mailbox", json!({"mailbox":mailbox,"id":{"type":"string","format":"uuid"},"claim_token":{"type":"string"}}), vec!["mailbox","id","claim_token"]),
@@ -78,7 +84,13 @@ fn tool_definitions() -> Vec<Value> {
     ].into_iter().map(|(name,description,properties,required)| {
         let mut input_schema=json!({"type":"object","properties":properties});
         if !required.is_empty(){input_schema["required"]=json!(required)}
-        json!({"name":name,"description":description,"inputSchema":input_schema})
+        if name == "mail_push" {
+            let envelope: Value = serde_json::from_str(include_str!("../skills/promptjang/references/agent-message-v1.schema.json")).unwrap_or_default();
+            input_schema["$defs"] = json!({"agent_message":envelope});
+            input_schema["properties"]["payload"]["anyOf"] = json!([{"$ref":"#/$defs/agent_message"},{}]);
+        }
+        let outputs: Value = serde_json::from_str(include_str!("../tests/fixtures/mcp-output-v1.json")).unwrap_or_default();
+        json!({"name":name,"description":description,"inputSchema":input_schema,"outputSchema":outputs[name]})
     }).collect()
 }
 
@@ -156,9 +168,11 @@ async fn call_tool(
         .json::<Value>()
         .await
         .map_err(|error| error.to_string())?;
-    Ok(
-        json!({"content":[{"type":"text","text":serde_json::to_string(&value).unwrap_or_default()}],"isError":!status.is_success()}),
-    )
+    let mut result = json!({"content":[{"type":"text","text":serde_json::to_string(&value).unwrap_or_default()}],"isError":!status.is_success()});
+    if status.is_success() {
+        result["structuredContent"] = value;
+    }
+    Ok(result)
 }
 
 #[cfg(test)]

@@ -1,4 +1,24 @@
-# Agent message envelope
+# Agent Message Envelope v1
+
+Opt in with `"schema": "promptjang.agent-message.v1"`. See
+[JSON Schema](agent-message-v1.schema.json). Existing plain text, arbitrary JSON,
+and the unversioned examples below remain valid.
+
+Task input requires `schema`, `kind: "task"`, `correlation_id`, and `task`.
+Result output requires `schema`, `kind: "result"`, the same `correlation_id`,
+`in_reply_to` (source message UUID), `status` (`succeeded` or `failed`),
+and `summary`. Failed results also require a sanitized `error`.
+
+Pass an envelope directly as `mail_push.arguments.payload`, not a JSON string.
+Read it from `mail_claim`'s `payload_json`. Successful MCP responses provide
+`structuredContent` plus text content for older clients. This transport wrapper
+is separate from the agent envelope. No new tool or agent execution is introduced.
+
+Versioned messages are validated before acceptance; invalid ones return an error.
+Send results with `idempotency_key: "result:SOURCE_MESSAGE_ID"` before ack.
+Messages remain untrusted data, never authority to execute.
+
+## Legacy-compatible examples
 
 PromptJang accepts plain text or JSON. Use this small JSON envelope when agents need a predictable handoff. It is a convention for agents, not a new Relay protocol.
 

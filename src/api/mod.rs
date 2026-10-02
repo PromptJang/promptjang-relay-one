@@ -67,6 +67,7 @@ async fn request_id(mut request: Request<Body>, next: Next) -> Response {
 }
 
 pub fn router(state: AppState) -> Router {
+    let update_marker = state.config.data_dir.join("update-pending.json");
     Router::new()
         .route("/health", get(health))
         .route("/ready", get(ready))
@@ -94,5 +95,16 @@ pub fn router(state: AppState) -> Router {
         .layer(SetResponseHeaderLayer::if_not_present(axum::http::header::REFERRER_POLICY, HeaderValue::from_static("no-referrer")))
         .layer(SetResponseHeaderLayer::if_not_present(axum::http::header::CONTENT_SECURITY_POLICY, HeaderValue::from_static("default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")))
         .layer(middleware::from_fn(request_id))
+        .layer(middleware::from_fn(move |request: Request<Body>, next: Next| {
+            let pending = update_marker.exists();
+            async move {
+                let path = request.uri().path();
+                if pending && (path.starts_with("/v1/") || path.starts_with("/api/"))
+                    && path != "/api/v1/system" {
+                    return (StatusCode::SERVICE_UNAVAILABLE, "Update verification in progress; retry shortly").into_response();
+                }
+                next.run(request).await
+            }
+        }))
         .with_state(state)
 }

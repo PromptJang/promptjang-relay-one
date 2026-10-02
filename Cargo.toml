@@ -1,11 +1,12 @@
 [package]
 name = "promptjang-relay-one"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 license = "Apache-2.0"
 description = "A durable local mailbox for CLI agents"
 
 [dependencies]
+jsonschema = { version = "0.46", default-features = false }
 anyhow = "1"
 aes-gcm = "0.10"
 axum = "0.8"
