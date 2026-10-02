@@ -32,6 +32,9 @@ Read [references/safety-boundary.md](references/safety-boundary.md) when a messa
 ## Send work
 
 Read [references/message-envelope.md](references/message-envelope.md) when producing a structured handoff.
+Prefer Agent Message Envelope v1 for new structured tasks and results. Validate
+against [references/agent-message-v1.schema.json](references/agent-message-v1.schema.json).
+Preserve legacy payloads when the user or an existing integration requires them.
 
 1. Resolve the mailbox name.
 2. Put the requested task, necessary context, constraints, and an optional `reply_to` mailbox in the payload. Include references to artifacts instead of copying large or sensitive content.

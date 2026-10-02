@@ -10,4 +10,7 @@ Use `export --output mailbox.json` for a permission-restricted mailbox archive. 
 promptjang-relay-one import --input mailbox.json
 ```
 
-Update prompts link only to the official PromptJang Relay One GitHub release. Quit Relay One before replacing the application; the SQLite schema migrates on the next launch.
+Desktop v0.4 updates require confirmation and a verified artifact signature; see
+[verified updates](verified-updates.md) for restart recovery and release gates.
+Browser/CLI users install manually. Quit before replacing the application;
+the SQLite schema migrates on the next launch.

@@ -10,7 +10,9 @@ use promptjang_relay_one_core::{config::Config, mcp, migration, runtime};
 use tauri::menu::MenuBuilder;
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Manager, RunEvent, State, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri_plugin_updater::UpdaterExt;
 use tokio_util::sync::CancellationToken;
+mod recovery;
 
 #[derive(Parser)]
 #[command(version, about = "A durable local mailbox for CLI agents")]
@@ -25,6 +27,11 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    #[command(hide = true)]
+    SuperviseUpdate {
+        #[arg(long)]
+        plan: PathBuf,
+    },
     Serve {
         #[arg(long)]
         no_open: bool,
@@ -44,6 +51,8 @@ struct DesktopRuntime {
     shutdown: CancellationToken,
     server: Mutex<Option<tauri::async_runtime::JoinHandle<Result<()>>>>,
     exiting: AtomicBool,
+    updating: AtomicBool,
+    config: Arc<Config>,
 }
 
 struct DesktopLinks {
@@ -96,9 +105,154 @@ async fn open_skill() -> Result<(), String> {
     open_target("https://github.com/PromptJang/promptjang-relay-skill".to_string()).await
 }
 
+#[tauri::command]
+async fn install_update(app: tauri::AppHandle, version: String) -> Result<(), String> {
+    let state = app.state::<DesktopRuntime>();
+    if !state.config.update_check_enabled {
+        return Err("Update checks are disabled".into());
+    }
+    if state.updating.swap(true, Ordering::AcqRel) {
+        return Err("An update is already running".into());
+    }
+    let result = perform_update(&app, &version).await;
+    if result.is_err() {
+        state.updating.store(false, Ordering::Release);
+    }
+    result.map_err(|error| error.to_string())
+}
+
+async fn perform_update(app: &tauri::AppHandle, version: &str) -> Result<()> {
+    recovery::check_installation()?;
+    let key = option_env!("PJ_ONE_UPDATER_PUBLIC_KEY")
+        .filter(|value| !value.trim().is_empty())
+        .context("This build has no trusted update key; use the official release installer")?;
+    let update = app
+        .updater_builder()
+        .pubkey(key)
+        .timeout(std::time::Duration::from_secs(120))
+        .build()?
+        .check()
+        .await?
+        .context("No signed update is available")?;
+    anyhow::ensure!(
+        update.version == version,
+        "Release changed; check updates and confirm again"
+    );
+    anyhow::ensure!(
+        update.download_url.scheme() == "https"
+            && update.download_url.host_str() == Some("github.com")
+            && update
+                .download_url
+                .path()
+                .starts_with("/PromptJang/promptjang-relay-one/releases/download/")
+            && update.download_url.query().is_none(),
+        "Update artifact is outside the official repository"
+    );
+    // download() verifies the pinned signature BEFORE stopping the service.
+    let bytes = update.download(|_, _| {}, || {}).await?;
+    anyhow::ensure!(
+        update.raw_json["repository"] == "PromptJang/promptjang-relay-one"
+            && update.raw_json["workflow"] == ".github/workflows/release.yml"
+            && update.raw_json["tag"] == format!("v{version}"),
+        "Unexpected update release identity"
+    );
+    let expected_hash = update.raw_json["platforms"]
+        .as_object()
+        .and_then(|platforms| {
+            platforms
+                .values()
+                .find(|artifact| artifact["url"].as_str() == Some(update.download_url.as_str()))
+        })
+        .and_then(|artifact| artifact["sha256"].as_str())
+        .context("Update manifest is missing the artifact checksum")?;
+    anyhow::ensure!(
+        promptjang_relay_one_core::domain::secrets::hash_bytes(&bytes) == expected_hash,
+        "Update artifact checksum mismatch"
+    );
+    #[cfg(target_os = "windows")]
+    anyhow::ensure!(
+        update.download_url.path().ends_with(".exe"),
+        "Windows update must be an NSIS installer"
+    );
+    let state = app.state::<DesktopRuntime>();
+    state.shutdown.cancel();
+    let server = state
+        .server
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .take();
+    if let Some(server) = server {
+        match tokio::time::timeout(std::time::Duration::from_secs(30), server).await {
+            Ok(result) => result??,
+            Err(error) => {
+                tracing::error!(%error, "Service shutdown timed out before backup; restarting without installing");
+                app.restart();
+            }
+        }
+    }
+    let config = state.config.clone();
+    let version = version.to_string();
+    let prepared = tauri::async_runtime::spawn_blocking(move || {
+        recovery::prepare(
+            &config.data_dir,
+            config
+                .bind
+                .rsplit(':')
+                .next()
+                .context("local port")?
+                .parse()?,
+            version,
+        )
+    })
+    .await?;
+    let (helper, plan) = match prepared {
+        Ok(value) => value,
+        Err(error) => {
+            tracing::error!(%error, "Update preparation failed; restarting unchanged application");
+            app.restart();
+        }
+    };
+    #[cfg(target_os = "windows")]
+    {
+        if let Err(error) = std::fs::write(
+            plan.parent()
+                .context("update directory")?
+                .join("previous-update/update-installer.exe"),
+            &bytes,
+        ) {
+            std::fs::remove_file(&plan)?;
+            tracing::error!(%error, "Could not stage the verified installer");
+            app.restart();
+        }
+    }
+    if let Err(error) = std::process::Command::new(helper)
+        .arg("supervise-update")
+        .arg("--plan")
+        .arg(&plan)
+        .spawn()
+    {
+        std::fs::remove_file(&plan)?;
+        tracing::error!(%error, "Recovery helper failed; restarting unchanged application");
+        app.restart();
+    }
+    #[cfg(not(target_os = "windows"))]
+    if let Err(error) = update.install(bytes) {
+        // The helper owns restoration after this process exits, including partial installs.
+        state.exiting.store(true, Ordering::Release);
+        app.exit(1);
+        return Err(error.into());
+    }
+    state.exiting.store(true, Ordering::Release);
+    app.exit(0);
+    Ok(())
+}
+
 fn main() -> Result<()> {
     runtime::init_logging();
     let cli = Cli::parse();
+    if let Some(Command::SuperviseUpdate { plan }) = &cli.command {
+        return recovery::supervise(plan);
+    }
     if let Some(command) = cli.command {
         return run_command(cli.data_dir, cli.port, command);
     }
@@ -123,21 +277,28 @@ fn run_command(data_dir: Option<PathBuf>, port: u16, command: Command) -> Result
                 migration::import(&pool, &input).await
             }
             Command::Mcp => unreachable!("MCP was handled before configuration"),
+            Command::SuperviseUpdate { .. } => unreachable!("recovery handled before runtime"),
         }
     })
 }
 
 fn run_desktop(data_dir: Option<PathBuf>, port: u16) -> Result<()> {
     let config = Arc::new(Config::load(data_dir, port)?.with_desktop_mode());
-    let mut builder = tauri::Builder::default().plugin(tauri_plugin_single_instance::init(
-        |app, _arguments, _working_directory| {
-            show_dashboard(app);
-        },
-    ));
+    if recovery::resume_if_needed(&config.data_dir)? {
+        return Ok(());
+    }
+    let mut builder = tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_single_instance::init(
+            |app, _arguments, _working_directory| {
+                show_dashboard(app);
+            },
+        ));
     builder = builder.invoke_handler(tauri::generate_handler![
         open_docs,
         open_release,
-        open_skill
+        open_skill,
+        install_update
     ]);
     builder = builder.setup(move |app| {
         let prepared = tauri::async_runtime::block_on(runtime::prepare(config.clone()))
@@ -156,6 +317,8 @@ fn run_desktop(data_dir: Option<PathBuf>, port: u16) -> Result<()> {
             shutdown,
             server: Mutex::new(Some(server)),
             exiting: AtomicBool::new(false),
+            updating: AtomicBool::new(false),
+            config: config.clone(),
         });
         app.manage(DesktopLinks { docs });
         WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
